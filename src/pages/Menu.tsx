@@ -18,7 +18,11 @@ export default function Menu() {
   useEffect(() => {
     async function getProducts() {
       setLoading(true);
-      const { data, error } = await supabase.from('products').select('*');
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_available', true)
+        .order('name');
       if (error) console.error("Error fetching products:", error);
       else setProducts(data as Product[]);
       setLoading(false);

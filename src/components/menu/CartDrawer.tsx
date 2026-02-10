@@ -1,21 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Added useEffect
 import { X, Minus, Plus, ArrowRight, Coffee } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
+import { useAuth } from '../../context/AuthContext'; // 1. Import Auth
 import { supabase } from '../../supabaseClient';
 
 export default function CartDrawer() {
   const { cart, addToCart, removeFromCart, clearCart, cartTotal, isCartOpen, setIsCartOpen } = useCart();
+  const { user } = useAuth(); // 2. Get current user
   const [customerName, setCustomerName] = useState('');
 
-  // Checkout logic...
+  // Optional: Auto-fill name if logged in
+  useEffect(() => {
+    if (user && user.email) {
+      // split email to get a temporary name (e.g. "john" from "john@email.com")
+      const nameFromEmail = user.email.split('@')[0];
+      setCustomerName(nameFromEmail);
+    }
+  }, [user]);
+
   async function handleCheckout() {
     if (!customerName.trim()) return alert("Please enter your name!");
     if (cart.length === 0) return alert("Cart is empty!");
 
     try {
+      // 3. Include user_id in the insert
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
-        .insert([{ customer_name: customerName, total_price: cartTotal, status: 'pending' }])
+        .insert([{ 
+          customer_name: customerName, 
+          total_price: cartTotal, 
+          status: 'pending',
+          user_id: user ? user.id : null // <--- SAVE USER ID HERE
+        }])
         .select();
 
       if (orderError) throw orderError;
@@ -54,7 +70,6 @@ export default function CartDrawer() {
         isCartOpen ? 'pointer-events-auto visibility-visible' : 'pointer-events-none invisible delay-300'
       }`}
     >
-      {/* Backdrop */}
       <div 
         className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${
           isCartOpen ? 'opacity-100' : 'opacity-0'
@@ -62,8 +77,6 @@ export default function CartDrawer() {
         onClick={() => setIsCartOpen(false)}
       />
       
-      {/* Drawer Panel */}
-      {/* CHANGED: 'w-full' to 'w-2/3' (covers 66% of screen on mobile) */}
       <div 
         className={`relative w-2/3 md:w-[450px] bg-[#141414] shadow-2xl flex flex-col h-full transform transition-transform duration-300 ease-in-out ${
           isCartOpen ? 'translate-x-0' : 'translate-x-full'
@@ -88,9 +101,8 @@ export default function CartDrawer() {
           ) : (
             cart.map(item => (
               <div key={item.cartId} className="flex gap-4 items-center animate-in fade-in slide-in-from-bottom-2 duration-500">
-                {/* Hide image on very small screens if width is too narrow, or keep it */}
                 <div className="hidden sm:block w-16 h-16 rounded-lg overflow-hidden border border-white/10 shrink-0">
-                  <img src={item.image_url || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1000&auto=format&fit=crop'} className="w-full h-full object-cover" />
+                  <img src={item.image_url || 'https://via.placeholder.com/150'} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-serif text-white text-sm truncate">{item.name}</h4>
