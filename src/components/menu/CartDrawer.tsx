@@ -4,12 +4,16 @@ import { X, Minus, Plus, ArrowRight, Coffee, Tag, Loader2, Sparkles } from 'luci
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../supabaseClient';
+import ProductModal from '../menu/ProductModal';
+
 
 export default function CartDrawer() {
   const navigate = useNavigate();
   const { cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount, isCartOpen, setIsCartOpen } = useCart();
   const { user } = useAuth();
   const [customerName, setCustomerName] = useState('');
+  const [editingItem, setEditingItem] = useState<any>(null);
+
   
   // Promotion States
   const [promoCode, setPromoCode] = useState('');
@@ -18,7 +22,8 @@ export default function CartDrawer() {
   const [appliedPromo, setAppliedPromo] = useState<any>(null);
   const [discountAmount, setDiscountAmount] = useState(0);
 
-  // Auto-fill name if logged in
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   useEffect(() => {
     if (user && user.email) {
       const nameFromEmail = user.email.split('@')[0];
@@ -26,7 +31,6 @@ export default function CartDrawer() {
     }
   }, [user]);
 
-  // Re-validate promo when cart changes
   useEffect(() => {
     if (cart.length === 0) {
       setAppliedPromo(null);
@@ -43,6 +47,13 @@ export default function CartDrawer() {
       }
     }
   }, [cart, cartTotal, cartCount]);
+
+  const handleEditItem = (item: any) => {
+    setEditingItem(item);
+    
+    setIsCartOpen(false);
+  };
+
 
   const checkMinQuantity = (promo: any) => {
     if (!promo.min_quantity) return true;
@@ -169,8 +180,14 @@ export default function CartDrawer() {
   };
 
   async function handleCheckout() {
+    // --- 2. STOP EXECUTION IF ALREADY SUBMITTING ---
+    if (isSubmitting) return;
+
     if (!customerName.trim()) return alert("Please enter your name!");
     if (cart.length === 0) return alert("Cart is empty!");
+
+    // --- 3. LOCK THE BUTTON ---
+    setIsSubmitting(true);
 
     const subtotal = cartTotal;
     const finalTotal = Math.max(0, subtotal - discountAmount);
@@ -206,17 +223,18 @@ export default function CartDrawer() {
         order_id: newOrderId,
         product_id: item.id,
         price_at_time: item.price,
-        quantity: item.quantity 
+        quantity: item.quantity,
+        notes: item.modifiers?.notes || null,
+        modifiers: item.modifiers?.selections || null
       }));
 
       const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData);
       if (itemsError) throw itemsError;
 
-      // WhatsApp Message - Updated to specific format
-      // "saya mau konfirmasi untuk pesanan dengan nomor #(order id) dengan total ...... terima kasih."
+      // WhatsApp Message
       const message = `Halo Kak, saya *${customerName}* mau konfirmasi untuk pesanan dengan nomor #${newOrderId} dengan total Rp ${finalTotal.toLocaleString()}. Terima Kasih!`;
       
-      window.open(`https://wa.me/6282325255305?text=${encodeURIComponent(message)}`, "_blank");
+      window.open(`https://wa.me/6287835209375?text=${encodeURIComponent(message)}`, "_blank");
 
       clearCart();
       setCustomerName('');
@@ -227,12 +245,17 @@ export default function CartDrawer() {
 
     } catch (error: any) {
       alert("Checkout failed: " + error.message);
+    } finally {
+      // --- 4. UNLOCK THE BUTTON (ALWAYS) ---
+      setIsSubmitting(false);
     }
   }
 
   const potentialPoints = Math.floor(Math.max(0, cartTotal - discountAmount) * 0.01);
 
   return (
+  <>
+
     <div 
       className={`fixed inset-0 z-[60] flex justify-end transition-all duration-500 ${
         isCartOpen ? 'pointer-events-auto visibility-visible' : 'pointer-events-none invisible delay-300'
@@ -274,11 +297,47 @@ export default function CartDrawer() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-serif text-white text-sm truncate">{item.name}</h4>
+                  {item.modifiers && item.modifiersData &&
+                    item.modifiersData.map((group: any) => {
+                      const selectedIds =
+                        item.modifiers?.selections?.[group.id] || [];
+
+                      if (!selectedIds.length) return null;
+
+                      const selectedOptions = group.options
+                        .filter((opt: any) => selectedIds.includes(opt.id))
+                        .map((opt: any) => opt.name)
+                        .join(', ');
+
+                      return (
+                        <p
+                          key={group.id}
+                          className="text-[11px] text-gray-400 mt-1"
+                        >
+                          {group.name}: {selectedOptions}
+                        </p>
+                      );
+                    })
+                  }
+
+                  {item.modifiers?.notes && (
+                    <p className="text-[10px] text-gray-500 italic mt-1">
+                      Note: {item.modifiers.notes}
+                    </p>
+                  )}
+
                   <p className="text-[#C5A572] text-xs mt-0.5">Rp {(item.price * item.quantity).toLocaleString()}</p>
                   <div className="flex items-center gap-2 mt-2">
-                    <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 flex items-center justify-center bg-white/5 rounded text-white active:bg-white/20 hover:bg-white/10 transition-colors"><Minus size={12} /></button>
+                    <button onClick={() => removeFromCart(item.cartId)} className="w-6 h-6 flex items-center justify-center bg-white/5 rounded text-white active:bg-white/20 hover:bg-white/10 transition-colors"><Minus size={12} /></button>
                     <span className="text-xs font-mono w-4 text-center">{item.quantity}</span>
                     <button onClick={() => addToCart(item)} className="w-6 h-6 flex items-center justify-center bg-white/5 rounded text-white active:bg-white/20 hover:bg-white/10 transition-colors"><Plus size={12} /></button>
+                    <button
+                      onClick={() => handleEditItem(item)}
+                      className="text-[10px] text-[#C5A572] hover:underline mt-2"
+                      >
+                      Edit
+                    </button>
+
                   </div>
                 </div>
               </div>
@@ -358,12 +417,27 @@ export default function CartDrawer() {
               </div>
             </div>
 
+            {/* --- 5. UPDATED BUTTON: DISABLED STATE & LOADING INDICATOR --- */}
             <button 
               onClick={handleCheckout} 
-              className="w-full bg-[#C5A572] text-black font-bold font-serif py-4 rounded-lg uppercase tracking-widest hover:bg-[#b09366] transition-colors flex justify-center items-center gap-2 active:scale-95 mb-4"
+              disabled={isSubmitting || cart.length === 0}
+              className={`w-full font-bold font-serif py-4 rounded-lg uppercase tracking-widest transition-colors flex justify-center items-center gap-2 mb-4 
+                ${isSubmitting 
+                  ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+                  : 'bg-[#C5A572] text-black hover:bg-[#b09366] active:scale-95'
+                }`}
             >
-              <span>Order</span>
-              <ArrowRight size={18} />
+              {isSubmitting ? (
+                <>
+                  <span>Processing...</span>
+                  <Loader2 size={18} className="animate-spin" />
+                </>
+              ) : (
+                <>
+                  <span>Order</span>
+                  <ArrowRight size={18} />
+                </>
+              )}
             </button>
 
             <div className="bg-[#141414] border border-[#C5A572]/20 rounded-lg p-3 flex items-center gap-3">
@@ -396,5 +470,15 @@ export default function CartDrawer() {
         )}
       </div>
     </div>
-  );
+
+    {editingItem && (
+      <ProductModal
+        isOpen={true}
+        product={editingItem}
+        onClose={() => setEditingItem(null)}
+        
+      />
+    )}
+  </>
+);
 }

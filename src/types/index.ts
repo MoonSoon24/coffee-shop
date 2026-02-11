@@ -6,10 +6,20 @@ export interface Product {
   description: string;
   image_url?: string;
   is_available?: boolean;
+  is_bundle?: boolean; 
+  product_bundles?: BundleItem[]; 
+}
+
+export interface BundleItem {
+  id: number;
+  parent_product_id: number;
+  child_product_id: number;
+  quantity: number;
+  products?: Product; 
 }
 
 export interface Promotion {
-  id: string; // uuid
+  id: string;
   code: string;
   description: string;
   type: 'percentage' | 'fixed_amount';
@@ -20,12 +30,11 @@ export interface Promotion {
   starts_at: string;
   ends_at: string;
   is_active: boolean;
-  // Optional join field for UI display
   promotion_targets?: PromotionTarget[]; 
 }
 
 export interface PromotionTarget {
-  id: string; // uuid
+  id: string;
   promotion_id: string;
   target_product_id?: number;
   target_category?: string;
@@ -34,4 +43,25 @@ export interface PromotionTarget {
 export interface CartItem extends Product {
   cartId: string;
   quantity: number;
+
+  modifiers?: {
+    selections: Record<string, string[]>;
+    notes: string;
+  };
+
+  modifiersData?: any[];
 }
+
+export type ModifierOption = {
+  id: string;
+  name: string;
+  price: number;
+};
+
+export type ProductModifier = {
+  id: string;
+  name: string;
+  isRequired: boolean;
+  type: 'single' | 'multi';
+  options: ModifierOption[];
+};

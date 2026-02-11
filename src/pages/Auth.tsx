@@ -20,7 +20,7 @@ export default function Auth() {
         if (error) throw error;
 
         // FIX: Check if the user is an admin before redirecting
-        const adminEmails = ['admin@ulun.com', 'sbstn.stp@gmail.com'];
+        const adminEmails = ['jarulun04@gmail.com', 'sbstn.stp@gmail.com'];
         const userEmail = data.user?.email;
 
         if (userEmail && adminEmails.includes(userEmail)) {
