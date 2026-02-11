@@ -287,3 +287,74 @@
   color: white;
   background-color: rgba(0, 0, 0, 0.8);
 }
+
+.light-theme {
+  background: #f6f7fb;
+  color: #111827;
+}
+
+.light-theme nav {
+  border-color: rgba(17, 24, 39, 0.08) !important;
+}
+
+.light-theme [class*='bg-[#0f0f0f]'],
+.light-theme [class*='bg-[#141414]'],
+.light-theme [class*='bg-[#1a1a1a]'],
+.light-theme [class*='bg-[#121212]'],
+.light-theme [class*='bg-black'],
+.light-theme [class*='from-[#191919]'],
+.light-theme [class*='to-[#121212]'],
+.light-theme .admin-page,
+.light-theme .admin-card,
+.light-theme .admin-sidebar,
+.light-theme .admin-item-card,
+.light-theme .admin-tab-group {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+}
+
+.light-theme [class*='text-white'],
+.light-theme .admin-title,
+.light-theme .admin-input,
+.light-theme .admin-select {
+  color: #111827 !important;
+}
+
+.light-theme [class*='text-gray-400'] {
+  color: #4b5563 !important;
+}
+
+.light-theme [class*='text-gray-500'],
+.light-theme [class*='text-gray-600'] {
+  color: #6b7280 !important;
+}
+
+.light-theme [class*='border-white'],
+.light-theme .admin-card,
+.light-theme .admin-sidebar,
+.light-theme .admin-item-card,
+.light-theme .admin-tab-group,
+.light-theme .admin-input,
+.light-theme .admin-select {
+  border-color: #e5e7eb !important;
+}
+
+.light-theme .admin-input,
+.light-theme .admin-select {
+  background-color: #ffffff !important;
+}
+
+.light-theme [class*='bg-gradient-to-b'],
+.light-theme [class*='bg-gradient-to-br'] {
+  background-image: none !important;
+}
+
+.light-theme [class*='from-[#0f0f0f'],
+.light-theme [class*='via-[#0f0f0f'],
+.light-theme [class*='to-[#0f0f0f'] {
+  background: linear-gradient(to bottom, rgba(255,255,255,0.35), rgba(255,255,255,0.8)) !important;
+}
+
+.light-theme [class*='backdrop-blur'] {
+  backdrop-filter: blur(6px);
+}

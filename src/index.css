@@ -2,16 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Fix: Remove the default centering and white background constraints */
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  /* Force dark mode base styles to match your app design */
-  color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #0f0f0f; 
+  color-scheme: light;
+  color: #111827;
+  background-color: #f6f7fb;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -22,26 +19,23 @@
 body {
   margin: 0;
   padding: 0;
-  /* display: flex;  <-- THIS WAS THE PROBLEM. REMOVED. */
-  /* place-items: center; <-- THIS WAS THE PROBLEM. REMOVED. */
   min-height: 100vh;
   width: 100%;
-  background-color: #0f0f0f; /* Ensure background matches your app */
-  overflow-x: hidden; /* Prevent accidental horizontal scroll */
+  background-color: #f6f7fb;
+  overflow-x: hidden;
 }
 
-/* Scrollbar styling for a premium feel */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f0f0f;
+  background: #eef2f7;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #333;
+  background: #cbd5e1;
   border-radius: 4px;
 }
 

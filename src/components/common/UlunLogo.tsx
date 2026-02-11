@@ -4,6 +4,6 @@ export const UlunLogo = ({ className = "h-8" }: { className?: string }) => (
   <img 
     src={logoPng} 
     alt="Ulun Coffee" 
-    className={`${className} object-contain brightness-0 invert`} 
+    className={`${className} object-contain brightness-0 `} 
   />
 );

@@ -15,7 +15,7 @@ function App() {
     <AuthProvider>
       <CartProvider>
         <Router>
-          <div className="min-h-screen bg-[#0f0f0f] text-gray-200 font-sans overflow-hidden">
+          <div className="light-theme min-h-screen bg-[#f6f7fb] text-gray-800 font-sans overflow-hidden">
             <Navbar />
             <CartDrawer />
             
