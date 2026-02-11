@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, Trash2, LogOut, RefreshCcw, Megaphone, Power, PowerOff, 
-  Calendar, Tag, Percent, DollarSign, Search, X, Edit2, Package, 
+  Calendar, Tag, Percent, DollarSign, X, Edit2, Package, 
   MoreVertical, Settings 
 } from 'lucide-react';
 import ConfirmModal from '../components/common/ConfirmModal';
