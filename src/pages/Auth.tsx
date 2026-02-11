@@ -54,13 +54,6 @@ export default function Auth() {
           <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-[#0f0f0f]/80 to-transparent" />
         </div>
 
-      <button 
-        onClick={() => navigate('/')} 
-        className="absolute top-6 left-6 z-20 text-white/50 hover:text-white flex items-center gap-2 transition-colors"
-      >
-        <ArrowLeft size={20} /> Back
-      </button>
-
       <div className="z-10 w-full max-w-md bg-[#141414]/90 backdrop-blur-md border border-white/10 p-8 rounded-2xl shadow-2xl">
         <h2 className="text-3xl font-serif text-white mb-2 text-center">
           {isLogin ? 'Welcome Back' : 'Join Us'}
