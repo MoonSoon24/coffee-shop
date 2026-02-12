@@ -133,7 +133,7 @@ addToCart(finalItem, quantity);
   <>
     {/* BACKDROP */}
     <div
-      className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm transition-opacity"
+      className="fixed inset-0 z-[80] bg-black/80 force-dark-overlay backdrop-blur-sm transition-opacity"
       onClick={onClose}
     />
 

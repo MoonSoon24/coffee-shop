@@ -19,14 +19,13 @@ export default function Auth() {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // FIX: Check if the user is an admin before redirecting
         const adminEmails = ['jarulun04@gmail.com', 'sbstn.stp@gmail.com'];
         const userEmail = data.user?.email;
 
         if (userEmail && adminEmails.includes(userEmail)) {
-            navigate('/admin'); // Go to Admin Dashboard
+            navigate('/admin');
         } else {
-            navigate('/menu');  // Go to Menu for normal users
+            navigate('/menu');
         }
 
       } else {

@@ -3,8 +3,8 @@ import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
+  Clock3,
   Coins,
-  Loader2,
   Package,
   Search,
   SlidersHorizontal,
@@ -12,6 +12,8 @@ import {
   TrendingUp,
   Wallet,
 } from 'lucide-react';
+import OrderDetailModal from '../components/common/OrderDetailModal';
+import PageSkeleton from '../components/common/PageSkeleton';
 
 type LedgerRow = {
   order_id: number | null;
@@ -29,6 +31,7 @@ export default function Profile() {
   const [searchOrder, setSearchOrder] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState<SortType>('newest');
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -46,25 +49,11 @@ export default function Profile() {
           .select('*, order_items(*, products(*))')
           .eq('user_id', user!.id)
           .order('created_at', { ascending: false }),
-        supabase
-          .from('points_ledger')
-          .select('order_id, entry_type, points_delta')
-          .eq('user_id', user!.id),
+        supabase.from('points_ledger').select('order_id, entry_type, points_delta').eq('user_id', user!.id),
       ]);
 
-      if (ordersRes.error) {
-        console.error('Failed to load orders:', ordersRes.error.message);
-        setOrders([]);
-      } else {
-        setOrders(ordersRes.data || []);
-      }
-
-      if (ledgerRes.error) {
-        console.error('Failed to load points ledger:', ledgerRes.error.message);
-        setLedger([]);
-      } else {
-        setLedger((ledgerRes.data || []) as LedgerRow[]);
-      }
+      setOrders(ordersRes.error ? [] : ordersRes.data || []);
+      setLedger(ledgerRes.error ? [] : ((ledgerRes.data || []) as LedgerRow[]));
 
       setLoading(false);
     }
@@ -92,24 +81,26 @@ export default function Profile() {
     return map;
   }, [ledger]);
 
-  const { pointsBalance, pointsEarned, pointsUsed } = useMemo(() => {
+  const { pointsBalance, pointsEarned, pointsUsed, pointsPending } = useMemo(() => {
     const earned = ledger.filter((row) => row.points_delta > 0).reduce((sum, row) => sum + row.points_delta, 0);
     const used = ledger.filter((row) => row.points_delta < 0).reduce((sum, row) => sum + Math.abs(row.points_delta), 0);
+
+    const pending = orders
+      .filter((order) => order.status === 'pending')
+      .reduce((sum, order) => sum + Math.max(0, Math.floor((order.total_price || 0) - (order.points_used || 0))), 0);
 
     return {
       pointsBalance: Math.max(0, earned - used),
       pointsEarned: earned,
       pointsUsed: used,
+      pointsPending: pending,
     };
-  }, [ledger]);
+  }, [ledger, orders]);
 
   const filteredOrders = useMemo(() => {
     const q = searchOrder.trim().toLowerCase();
 
-    const byFilter = orders.filter((order) => {
-      if (statusFilter === 'all') return true;
-      return order.status === statusFilter;
-    });
+    const byFilter = orders.filter((order) => (statusFilter === 'all' ? true : order.status === statusFilter));
 
     const bySearch = byFilter.filter((order) => {
       if (!q) return true;
@@ -137,6 +128,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-[#f6f7fb] pt-24 px-4 md:px-6 pb-12 text-slate-900">
+      <OrderDetailModal isOpen={!!selectedOrder} onClose={() => setSelectedOrder(null)} order={selectedOrder} />
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-4 mb-8 border-b border-slate-200 pb-6">
           <div>
@@ -154,7 +146,7 @@ export default function Profile() {
         <section className="mb-10">
           <h2 className="text-[#C5A572] text-xs uppercase tracking-widest mb-4">My Rewards</h2>
 
-          <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+            <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
             <div className="bg-white border border-[#C5A572]/40 rounded-xl p-4 shadow-sm">
               <p className="text-[11px] uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
                 <Wallet size={13} className="text-[#C5A572]" /> Balance
@@ -167,24 +159,27 @@ export default function Profile() {
               <p className="text-[11px] uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
                 <TrendingUp size={13} className="text-emerald-500" /> Earned
               </p>
-              <p className="text-2xl font-serif text-slate-900">{pointsEarned}</p>
-              <p className="text-xs text-slate-500 mt-1">From all successful ledger entries.</p>
+              <p className="text-3xl font-serif text-emerald-600">+{pointsEarned}</p>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm sm:col-span-2 md:col-span-1">
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
               <p className="text-[11px] uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
                 <TrendingDown size={13} className="text-rose-500" /> Used
               </p>
-              <p className="text-2xl font-serif text-slate-900">{pointsUsed}</p>
-              <p className="text-xs text-slate-500 mt-1">Redeemed / reversed entries included.</p>
+              <p className="text-3xl font-serif text-rose-600">-{pointsUsed}</p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+              <p className="text-[11px] uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
+                <Clock3 size={13} className="text-amber-500" /> Pending
+              </p>
+              <p className="text-3xl font-serif text-amber-600">{pointsPending}</p>
             </div>
           </div>
 
           <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600 leading-relaxed shadow-sm">
             <p className="flex items-start gap-2">
               <Coins size={15} className="text-[#C5A572] mt-0.5 shrink-0" />
-              Earn points automatically every time you order. To use points, open your cart while signed in and redeem
-              any amount up to your balance.
+              Pending points are estimated from orders that are still in pending status and move to balance after completion.
             </p>
           </div>
         </section>
@@ -234,9 +229,7 @@ export default function Profile() {
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="animate-spin text-[#C5A572]" />
-            </div>
+            <PageSkeleton rows={5} />
           ) : filteredOrders.length === 0 ? (
             <div className="text-center py-12 text-slate-500 border border-slate-200 rounded-xl bg-white shadow-sm">
               <Package className="mx-auto mb-3 opacity-50" size={32} />
@@ -248,45 +241,30 @@ export default function Profile() {
                 const orderPoints = pointsByOrder.get(order.id) || { earned: 0, used: Math.max(0, order.points_used || 0) };
 
                 return (
-                  <div key={order.id} className="bg-white border border-slate-200 rounded-xl p-4 md:p-5 hover:border-slate-300 transition-colors shadow-sm">
+                  <button
+                    key={order.id}
+                    onClick={() => setSelectedOrder(order)}
+                    className="w-full text-left bg-white border border-slate-200 rounded-xl p-4 md:p-5 hover:border-slate-300 transition-colors shadow-sm"
+                  >
                     <div className="flex flex-wrap justify-between items-start gap-2 mb-4">
                       <div>
-                        <span
-                          className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${
-                            order.status === 'completed'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : order.status === 'cancelled'
-                                ? 'bg-rose-100 text-rose-700'
-                                : 'bg-amber-100 text-amber-700'
-                          }`}
-                        >
-                          {order.status}
-                        </span>
+                        <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${
+                          order.status === 'completed'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : order.status === 'cancelled'
+                              ? 'bg-rose-100 text-rose-700'
+                              : 'bg-amber-100 text-amber-700'
+                        }`}>{order.status}</span>
                         <p className="text-slate-500 text-xs mt-2">#{order.id} • {new Date(order.created_at).toLocaleDateString()}</p>
                       </div>
                       <span className="font-serif text-[#9c7a4c] text-lg">Rp {order.total_price.toLocaleString()}</span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs mb-4">
-                      <p className="text-slate-500">
-                        Points earned: <span className="text-emerald-600 font-medium">+{orderPoints.earned}</span>
-                      </p>
-                      <p className="text-slate-500 sm:text-right">
-                        Points used: <span className="text-rose-600 font-medium">-{orderPoints.used}</span>
-                      </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs mb-1">
+                      <p className="text-slate-500">Points earned: <span className="text-emerald-600 font-medium">+{orderPoints.earned}</span></p>
+                      <p className="text-slate-500 sm:text-right">Points used: <span className="text-rose-600 font-medium">-{orderPoints.used}</span></p>
                     </div>
-
-                    <div className="space-y-2 border-t border-slate-100 pt-3">
-                      {(order.order_items || []).map((item: any) => (
-                        <div key={item.id} className="flex justify-between text-sm text-slate-700 gap-3">
-                          <span className="line-clamp-1">
-                            {item.products?.name} <span className="text-slate-400">x{item.quantity}</span>
-                          </span>
-                          <span className="shrink-0">Rp {(item.price_at_time || 0).toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>

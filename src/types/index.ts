@@ -7,6 +7,7 @@ export interface Product {
   image_url?: string;
   is_available?: boolean;
   is_bundle?: boolean; 
+  is_recommended?: boolean;
   product_bundles?: BundleItem[]; 
 }
 

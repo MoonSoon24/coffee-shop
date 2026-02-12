@@ -301,7 +301,6 @@
 .light-theme [class*='bg-[#141414]'],
 .light-theme [class*='bg-[#1a1a1a]'],
 .light-theme [class*='bg-[#121212]'],
-.light-theme [class*='bg-black'],
 .light-theme [class*='from-[#191919]'],
 .light-theme [class*='to-[#121212]'],
 .light-theme .admin-page,
@@ -357,4 +356,19 @@
 
 .light-theme [class*='backdrop-blur'] {
   backdrop-filter: blur(6px);
+}
+
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.reveal-on-scroll.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+force-dark-overlay {
+  background-color: rgba(0, 0, 0, 0.6) !important;
 }

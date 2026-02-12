@@ -6,6 +6,8 @@ import Menu from './pages/Menu';
 import Auth from './pages/Auth';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
+import Reservation from './pages/Reservation';
+import Checkout from './pages/Checkout';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import './App.css';
@@ -25,6 +27,8 @@ function App() {
               <Route path="/login" element={<Auth />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/reservation" element={<Reservation />} />
+              <Route path="/checkout" element={<Checkout />} />
             </Routes>
           </div>
         </Router>

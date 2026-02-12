@@ -5,11 +5,13 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Plus, Trash2, LogOut, RefreshCcw, Megaphone, Power, PowerOff, 
   Calendar, Tag, Percent, DollarSign, X, Edit2, Package, 
-  MoreVertical, Settings 
+  MoreVertical, Settings,Star  
 } from 'lucide-react';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ModifierModal, { type ProductModifier } from '../components/common/ModifierModal'; // Ensure this path matches where you saved the previous file
 import type { Product, Promotion } from '../types';
+import OrderDetailModal from '../components/common/OrderDetailModal';
+import PageSkeleton from '../components/common/PageSkeleton';
 
 export default function Admin() {
   const { user, signOut } = useAuth();
@@ -17,6 +19,7 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'promotions'>('orders');
   
   const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -77,6 +80,8 @@ export default function Admin() {
     isDestructive: boolean;
     confirmText: string;
   } | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [orderSearch, setOrderSearch] = useState('');
 
   useEffect(() => {
     if (!user) navigate('/login');
@@ -109,6 +114,7 @@ export default function Admin() {
   }, [newProduct.bundle_items, bundleDiscountPercent, newProduct.is_bundle]);
 
   const fetchData = async () => {
+    setLoading(true);
     // Orders
     const { data: ord, error: ordError } = await supabase.from('orders').select('*, order_items(*, products(*))').order('created_at', { ascending: false });
     if (ordError) console.error("Error fetching orders:", ordError);
@@ -143,6 +149,7 @@ export default function Admin() {
       const uniqueCats = Array.from(new Set(prod.map((p: any) => p.category))).filter(Boolean) as string[];
       setCategories(uniqueCats.sort());
     }
+    setLoading(false);
   };
 
   const handleLogout = async () => {
@@ -251,6 +258,11 @@ export default function Admin() {
 
   const toggleProductAvailability = async (id: number, currentStatus: boolean | undefined) => {
     const { error } = await supabase.from('products').update({ is_available: !currentStatus }).eq('id', id);
+    if (!error) fetchData();
+  };
+
+  const toggleRecommended = async (id: number, currentStatus: boolean | undefined) => {
+    const { error } = await supabase.from('products').update({ is_recommended: !currentStatus }).eq('id', id);
     if (!error) fetchData();
   };
 
@@ -401,6 +413,25 @@ export default function Admin() {
     fetchData();
   };
 
+  const assignCourierToOrder = async (order: any) => {
+    const courierPhone = prompt('Courier WhatsApp number (e.g. 62812...)');
+    if (!courierPhone) return;
+
+    const { error } = await supabase
+      .from('orders')
+      .update({ courier_phone: courierPhone, status: 'assigned' })
+      .eq('id', order.id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    const courierMessage = `Halo, ada pengantaran order #${order.id}\nNama pelanggan: ${order.customer_name}\nNo pelanggan: ${order.customer_phone || '-'}\nAlamat: ${order.address || '-'}\nMaps: ${order.maps_link || '-'}\nTotal: Rp ${Number(order.total_price || 0).toLocaleString()}\nNotes: ${order.notes || '-'}\nMohon konfirmasi penerimaan tugas.`;
+    window.open(`https://wa.me/${courierPhone}?text=${encodeURIComponent(courierMessage)}`, '_blank');
+    fetchData();
+  };
+
   // Helper Wrappers
   const getScopeLabel = (p: Promotion) => {
     if (p.scope === 'order') return 'Entire Order';
@@ -424,6 +455,16 @@ export default function Admin() {
     if (newPromo.scope === 'product') return products.filter(p => (p.name || '').toLowerCase().includes(term));
     return [];
   };
+
+   const filteredOrders = orders.filter((order) => {
+    const term = orderSearch.toLowerCase().trim();
+    if (!term) return true;
+    return (
+      String(order.id).includes(term) ||
+      String(order.customer_name || '').toLowerCase().includes(term) ||
+      (order.order_items || []).some((item: any) => String(item.products?.name || '').toLowerCase().includes(term))
+    );
+  });
 
   // --- HELPER FOR SIDEBAR PREVIEW ---
   const calculateSidebarBundleTotal = () => {
@@ -450,6 +491,13 @@ export default function Admin() {
             onSave={handleSaveModifiers}
           />
        )}
+
+       <OrderDetailModal
+        isOpen={!!selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+        order={selectedOrder}
+        isAdmin
+      />
 
       <div className="admin-container">
         {/* HEADER */}
@@ -483,14 +531,32 @@ export default function Admin() {
         {/* --- ORDERS TAB --- */}
         {activeTab === 'orders' && (
           <div className="admin-grid-orders">
-            {orders.length === 0 ? (
+            <div className="mb-3">
+              <input
+                value={orderSearch}
+                onChange={(e) => setOrderSearch(e.target.value)}
+                placeholder="Search by order ID, customer name, or item..."
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+              />
+            </div>
+
+            {loading ? (
+              <PageSkeleton rows={5} />
+            ) : filteredOrders.length === 0 ? (
                <p className="text-gray-500 text-center py-10">No orders found.</p>
             ) : (
-              orders.map(order => (
-                <div key={order.id} className="admin-card">
+              filteredOrders.map(order => (
+                <div key={order.id} className="admin-card cursor-pointer" onClick={() => setSelectedOrder(order)}>
                   <div>
                     <h3 className="text-white font-bold">{order.customer_name} <span className="text-xs font-normal text-gray-500">#{order.id}</span></h3>
-                    <p className="text-sm text-gray-400 mb-2">Total: <span className="text-[#C5A572]">Rp {order.total_price.toLocaleString()}</span></p>
+                    <p className="text-sm text-gray-400 mb-1">Type: <span className="text-white/90 uppercase">{order.type || 'takeaway'}</span></p>
+                    <p className="text-sm text-gray-400 mb-1">Total: <span className="text-[#C5A572]">Rp {order.total_price.toLocaleString()}</span></p>
+                    {order.type === 'delivery' && (
+                      <div className="text-xs text-gray-500 mb-2">
+                        <p className="truncate">Address: {order.address || '-'}</p>
+                        {order.maps_link && <a href={order.maps_link} target="_blank" onClick={(e) => e.stopPropagation()} className="text-[#C5A572] hover:underline" rel="noreferrer">View map</a>}
+                      </div>
+                    )}
                     <ul className="text-sm text-gray-500 space-y-1">
                       {order.order_items.map((item: any) => (
                         <li key={item.id}>- {item.products?.name} (x{item.quantity})</li>
@@ -498,12 +564,22 @@ export default function Admin() {
                     </ul>
                   </div>
                   <div className="flex flex-col gap-2 min-w-[120px]">
+                    {order.type === 'delivery' && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); assignCourierToOrder(order); }}
+                        className="text-xs rounded-md border border-[#C5A572]/50 text-[#C5A572] px-2 py-1 hover:bg-[#C5A572]/10"
+                      >
+                        Assign Courier
+                      </button>
+                    )}
                     <select 
                       value={order.status}
                       onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
                       className="admin-select"
                     >
                       <option value="pending">Pending</option>
+                      <option value="assigned">Assigned</option>
                       <option value="completed">Completed</option>
                       <option value="cancelled">Cancelled</option>
                     </select>
@@ -645,6 +721,9 @@ export default function Admin() {
                             <button onClick={() => openModifierModal(product)} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-[#C5A572] flex items-center gap-2">
                               <Settings size={12} /> Manage Add-ons
                             </button>
+                            <button onClick={() => { toggleRecommended(product.id, (product as any).is_recommended); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-amber-300 flex items-center gap-2">
+                              <Star size={12} /> {(product as any).is_recommended ? 'Remove Recommended' : 'Mark Recommended'}
+                            </button>
                             <div className="h-px bg-white/10 my-1" />
                             <button onClick={() => { openConfirm(product.is_available ? "Archive" : "Restore", "Are you sure?", async () => toggleProductAvailability(product.id, product.is_available), true); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-red-500/10 flex items-center gap-2">
                               {product.is_available ? <Trash2 size={12} /> : <RefreshCcw size={12} />} {product.is_available ? 'Archive' : 'Restore'}
@@ -660,7 +739,7 @@ export default function Admin() {
                     </div>
                     
                     <div className="flex-1 pr-6"> {/* Added padding-right to avoid overlap with menu */}
-                      <h4 className="text-white font-medium">{product.name}</h4>
+                      <h4 className="text-white font-medium flex items-center gap-2">{product.name}{(product as any).is_recommended && <span className="text-[10px] bg-amber-200 text-black px-1.5 py-0.5 rounded-full">Recommended</span>}</h4>
                       <div className="flex items-center gap-2">
                         <p className="admin-price">Rp {product.price.toLocaleString()}</p>
                         {product.is_bundle && originalSum > product.price && (

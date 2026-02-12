@@ -101,7 +101,7 @@ export default function ModifierModal({ isOpen, onClose, product, onSave }: Modi
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 force-dark-overlay backdrop-blur-sm p-4">
       <div className="bg-[#1a1a1a] w-full max-w-4xl max-h-[90vh] rounded-2xl border border-white/10 flex flex-col shadow-2xl">
         
         {/* Modal Header */}

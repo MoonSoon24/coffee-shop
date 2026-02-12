@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Search, SlidersHorizontal } from 'lucide-react';
+import { Search, SlidersHorizontal } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import type { Product } from '../types';
 import ProductCard from '../components/menu/ProductCard';
 import ProductModal from '../components/menu/ProductModal';
 import { useCart } from '../context/CartContext';
+import PageSkeleton from '../components/common/PageSkeleton';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const CATEGORIES = ['All', 'Bundles', 'Signatures', 'Hot Coffee', 'Iced', 'Tea', 'Pastry'];
 
@@ -17,13 +20,17 @@ export default function Menu() {
   const [sortBy, setSortBy] = useState<SortOption>('popular');
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [favoriteCounts, setFavoriteCounts] = useState<Record<number, number>>({});
+  const [myFavorites, setMyFavorites] = useState<number[]>([]);
 
   const { cartCount, cartTotal, setIsCartOpen } = useCart();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    async function getProducts() {
-      setLoading(true);
-      const { data, error } = await supabase
+  const getProductsAndFavorites = async () => {
+    setLoading(true);
+    const [{ data, error }, favRes] = await Promise.all([
+      supabase
         .from('products')
         .select(`
           *,
@@ -33,14 +40,32 @@ export default function Menu() {
           )
         `)
         .eq('is_available', true)
-        .order('name');
+        .order('name'),
+      supabase.from('product_favorites').select('product_id, user_id'),
+    ]);
 
-      if (error) console.error('Error fetching products:', error);
-      else setProducts(data as Product[]);
-      setLoading(false);
+    if (error) console.error('Error fetching products:', error);
+    else setProducts(data as Product[]);
+
+    if (!favRes.error) {
+      const counts = (favRes.data || []).reduce((acc: Record<number, number>, row: any) => {
+        acc[row.product_id] = (acc[row.product_id] || 0) + 1;
+        return acc;
+      }, {});
+      setFavoriteCounts(counts);
+
+      if (user) {
+        const mine = (favRes.data || []).filter((r: any) => r.user_id === user.id).map((r: any) => r.product_id);
+        setMyFavorites(mine);
+      } else setMyFavorites([]);
     }
-    getProducts();
-  }, []);
+
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    getProductsAndFavorites();
+  }, [user]);
 
   const filteredProducts = useMemo(() => {
     const lowerSearch = searchQuery.trim().toLowerCase();
@@ -66,6 +91,33 @@ export default function Menu() {
 
     return sorted;
   }, [products, activeCategory, searchQuery, sortBy]);
+
+  const top3FavoriteIds = useMemo(
+    () =>
+      Object.entries(favoriteCounts)
+        .sort((a, b) => Number(b[1]) - Number(a[1]))
+        .slice(0, 3)
+        .map(([id]) => Number(id)),
+    [favoriteCounts]
+  );
+
+  const toggleFavorite = async (productId: number) => {
+    if (!user) {
+      alert('Please login first to favorite a menu item.');
+      navigate('/login');
+      return;
+    }
+
+    const already = myFavorites.includes(productId);
+
+    if (already) {
+      await supabase.from('product_favorites').delete().eq('user_id', user.id).eq('product_id', productId);
+    } else {
+      await supabase.from('product_favorites').insert([{ user_id: user.id, product_id: productId }]);
+    }
+
+    await getProductsAndFavorites();
+  };
 
   return (
     <div className="min-h-screen bg-[#f6f7fb] flex flex-col text-slate-900">
@@ -130,16 +182,21 @@ export default function Menu() {
       <div className="flex-1 px-4 md:px-6 py-6">
         <div className="max-w-7xl mx-auto pb-32">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 opacity-60 text-slate-600">
-              <Loader2 className="animate-spin mb-4 text-[#C5A572]" size={32} />
-              <p className="font-serif text-sm">Brewing your menu...</p>
-            </div>
+            <PageSkeleton rows={8} />
           ) : (
             <>
               <div className="md:hidden mb-4 text-xs text-slate-500">Tip: tap a card to quickly customize or add.</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 md:gap-x-6 gap-y-6 md:gap-y-8">
                 {filteredProducts.map((item) => (
-                  <ProductCard key={item.id} item={item} onClick={() => setSelectedProduct(item)} />
+                  <ProductCard
+                    key={item.id}
+                    item={item}
+                    onClick={() => setSelectedProduct(item)}
+                    isFavorited={myFavorites.includes(item.id)}
+                    onToggleFavorite={() => toggleFavorite(item.id)}
+                    isMostFavorited={top3FavoriteIds.includes(item.id)}
+                    favoriteCount={favoriteCounts[item.id] || 0}
+                  />
                 ))}
 
                 {filteredProducts.length === 0 && (

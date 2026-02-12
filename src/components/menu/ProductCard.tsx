@@ -1,12 +1,23 @@
-import { Plus, Settings, Package } from 'lucide-react';
+import { Heart, Plus, Settings, Sparkles, Package } from 'lucide-react';
 import type { Product } from '../../types';
 
 interface ProductCardProps {
   item: Product;
   onClick?: () => void;
+  isFavorited?: boolean;
+  onToggleFavorite?: () => void;
+  isMostFavorited?: boolean;
+  favoriteCount?: number;
 }
 
-export default function ProductCard({ item, onClick }: ProductCardProps) {
+export default function ProductCard({
+  item,
+  onClick,
+  isFavorited = false,
+  onToggleFavorite,
+  isMostFavorited = false,
+  favoriteCount = 0,
+}: ProductCardProps) {
   const originalPrice =
     item.is_bundle && (item as any).product_bundles
       ? (item as any).product_bundles.reduce((acc: number, curr: any) => {
@@ -30,14 +41,39 @@ export default function ProductCard({ item, onClick }: ProductCardProps) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
 
+        {onToggleFavorite && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite();
+            }}
+            className="absolute top-2 right-2 p-2 rounded-full bg-black/55 text-white hover:text-rose-300 border border-white/20"
+            aria-label="Toggle favorite"
+          >
+            <Heart size={14} fill={isFavorited ? 'currentColor' : 'none'} className={isFavorited ? 'text-rose-300' : ''} />
+          </button>
+        )}
+
         <div className="absolute bottom-2 left-3 flex flex-wrap gap-2">
-          <span className="text-white text-[10px] font-semibold tracking-widest uppercase bg-black/55 backdrop-blur-sm px-2 py-1 rounded-full border border-white/20">
+          <span className="text-white text-[10px] font-semibold tracking-widest uppercase bg-white/80 backdrop-blur-sm px-2 py-1 rounded-full border border-white/20">
             {item.category}
           </span>
 
           {item.is_bundle && (
             <span className="text-black text-[10px] font-bold tracking-widest uppercase bg-[#C5A572] px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
               <Package size={10} /> Bundle
+            </span>
+          )}
+
+          {item.is_recommended && (
+            <span className="text-black text-[10px] font-bold tracking-widest uppercase bg-amber-200 px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
+              <Sparkles size={10} /> Recommended
+            </span>
+          )}
+
+          {isMostFavorited && (
+            <span className="text-white text-[10px] font-semibold bg-rose-500/90 px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
+              <Heart size={10} fill="currentColor" /> Most loved {favoriteCount > 0 ? `(${favoriteCount})` : ''}
             </span>
           )}
         </div>

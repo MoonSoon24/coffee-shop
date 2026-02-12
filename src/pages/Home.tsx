@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -12,6 +13,21 @@ import { useAuth } from '../context/AuthContext';
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  useEffect(() => {
+    const elements = document.querySelectorAll('.reveal-on-scroll');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) entry.target.classList.add('revealed');
+        });
+      },
+      { threshold: 0.15 }
+    );
+
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
 
   const bestsellers = [
     {
@@ -89,7 +105,7 @@ export default function Home() {
       </section>
 
       {/* --- BESTSELLERS PREVIEW --- */}
-      <section className="py-24 px-6 relative overflow-hidden bg-[#f6f7fb]">
+      <section className="py-24 px-6 relative overflow-hidden bg-[#f6f7fb] reveal-on-scroll">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#C5A572] rounded-full blur-[120px] opacity-10 pointer-events-none" />
 
         <div className="max-w-6xl mx-auto relative z-10">
@@ -108,7 +124,7 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {bestsellers.map((item, idx) => (
-              <div key={idx} className="group cursor-pointer" onClick={() => navigate('/menu')}>
+              <div key={idx} className="group cursor-pointer reveal-on-scroll" onClick={() => navigate('/menu')}>
                 <div className="overflow-hidden rounded-2xl mb-4 aspect-[4/5] relative shadow-sm border border-slate-200 bg-white">
                   <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors z-10" />
                   <img
@@ -172,7 +188,7 @@ export default function Home() {
       </section>
 
       {/* --- MAP SECTION --- */}
-      <section className="py-24 px-6 bg-[#f6f7fb]">
+      <section className="py-24 px-6 bg-[#f6f7fb] reveal-on-scroll">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-[#C5A572] text-sm tracking-[0.2em] uppercase font-sans mb-3">Visit Us</h2>
