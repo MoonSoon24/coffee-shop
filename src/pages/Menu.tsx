@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { useFeedback } from '../context/FeedbackContext';
 import type { Product } from '../types';
 import ProductCard from '../components/menu/ProductCard';
 import ProductModal from '../components/menu/ProductModal';
@@ -23,6 +24,7 @@ export default function Menu() {
 
   const { cartCount, cartTotal, setIsCartOpen } = useCart();
   const { user } = useAuth();
+  const { showToast } = useFeedback();
   const navigate = useNavigate();
 
   const getProductsAndFavorites = async () => {
@@ -119,7 +121,7 @@ export default function Menu() {
 
   const toggleFavorite = async (productId: number) => {
     if (!user) {
-      alert('Please login first to favorite a menu item.');
+      showToast('Please login first to favorite a menu item.', 'info');
       navigate('/login');
       return;
     }

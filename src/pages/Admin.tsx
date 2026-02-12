@@ -12,10 +12,12 @@ import ModifierModal, { type ProductModifier } from '../components/common/Modifi
 import type { Product, Promotion } from '../types';
 import OrderDetailModal from '../components/common/OrderDetailModal';
 import PageSkeleton from '../components/common/PageSkeleton';
+import { useFeedback } from '../context/FeedbackContext';
 
 export default function Admin() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { showToast, showPrompt } = useFeedback();
   const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'promotions'>('orders');
   
   const [orders, setOrders] = useState<any[]>([]);
@@ -40,7 +42,7 @@ export default function Admin() {
     image_url: string;
     is_bundle: boolean;
     bundle_items: { child_product_id: number; quantity: number; name: string; price: number }[];
-  }>({ 
+  }>({
     name: '', price: '', category: '', description: '', image_url: '', 
     is_bundle: false, bundle_items: [] 
   });
@@ -138,7 +140,7 @@ export default function Admin() {
 
     if (prodError) {
       console.error("Error fetching products:", prodError);
-      alert(`Error fetching products: ${prodError.message}`);
+      showToast(`Error fetching products: ${prodError.message}`, 'error');
     }
     
     if (ord) setOrders(ord);
@@ -230,7 +232,7 @@ export default function Admin() {
     }
 
     if (error) {
-      alert('Error saving product: ' + error.message);
+      showToast('Error saving product: ' + error.message, 'error');
       return;
     }
 
@@ -344,10 +346,10 @@ export default function Admin() {
 
     // Validation
     if (newPromo.scope === 'category' && !newPromo.target_category) {
-      alert("Please select a category."); return;
+      showToast('Please select a category.', 'error'); return;
     }
     if (newPromo.scope === 'product' && !newPromo.target_product_id) {
-      alert("Please select a product."); return;
+      showToast('Please select a product.', 'error'); return;
     }
 
     const startDate = newPromo.starts_at ? new Date(newPromo.starts_at).toISOString() : new Date().toISOString();
@@ -379,7 +381,7 @@ export default function Admin() {
     }
 
     if (error) {
-      alert('Error saving promotion: ' + error.message);
+      showToast('Error saving promotion: ' + error.message, 'error');
       return;
     }
 
@@ -400,7 +402,7 @@ export default function Admin() {
   const deletePromo = async (id: string) => {
     const { error } = await supabase.from('promotions').delete().eq('id', id);
     if (!error) fetchData();
-    else alert(error.message);
+    else showToast(error.message, 'error');
   };
 
   const togglePromoStatus = async (id: string, currentStatus: boolean) => {
@@ -414,7 +416,12 @@ export default function Admin() {
   };
 
   const assignCourierToOrder = async (order: any) => {
-    const courierPhone = prompt('Courier WhatsApp number (e.g. 62812...)');
+    const courierPhone = await showPrompt({
+      title: 'Assign Courier',
+      message: 'Enter courier WhatsApp number (e.g. 62812...)',
+      placeholder: '62812...',
+      confirmText: 'Assign',
+    });
     if (!courierPhone) return;
 
     const { error } = await supabase
@@ -423,12 +430,13 @@ export default function Admin() {
       .eq('id', order.id);
 
     if (error) {
-      alert(error.message);
+      showToast(error.message, 'error');
       return;
     }
 
     const courierMessage = `Halo, ada pengantaran order #${order.id}\nNama pelanggan: ${order.customer_name}\nNo pelanggan: ${order.customer_phone || '-'}\nAlamat: ${order.address || '-'}\nMaps: ${order.maps_link || '-'}\nTotal: Rp ${Number(order.total_price || 0).toLocaleString()}\nNotes: ${order.notes || '-'}\nMohon konfirmasi penerimaan tugas.`;
     window.open(`https://wa.me/${courierPhone}?text=${encodeURIComponent(courierMessage)}`, '_blank');
+    showToast('Courier assigned successfully.', 'success');
     fetchData();
   };
 

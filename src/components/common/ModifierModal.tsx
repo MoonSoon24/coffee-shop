@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Settings, Circle, CheckSquare } from 'lucide-react';
 import type { Product } from '../../types';
+import { useFeedback } from '../../context/FeedbackContext';
 
 // --- Shared Types ---
 export type ModifierOption = {
@@ -27,6 +28,7 @@ interface ModifierModalProps {
 export default function ModifierModal({ isOpen, onClose, product, onSave }: ModifierModalProps) {
   const [modifiersList, setModifiersList] = useState<ProductModifier[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const { showToast } = useFeedback();
 
   // Load initial modifiers when modal opens
   useEffect(() => {
@@ -92,7 +94,7 @@ export default function ModifierModal({ isOpen, onClose, product, onSave }: Modi
         onClose();
     } catch (error) {
         console.error(error);
-        alert("Failed to save modifiers");
+        showToast("Failed to save modifiers", "error");
     } finally {
         setIsSaving(false);
     }

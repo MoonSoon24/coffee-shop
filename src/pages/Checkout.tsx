@@ -4,11 +4,13 @@ import { ArrowLeft, Coins, LocateFixed, MapPin, Tag } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
+import { useFeedback } from '../context/FeedbackContext';
 
 export default function Checkout() {
   const navigate = useNavigate();
   const { cart, cartTotal, clearCart, cartCount } = useCart();
   const { user } = useAuth();
+  const { showToast } = useFeedback();
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -175,7 +177,10 @@ export default function Checkout() {
   const finalTotal = Math.max(0, cartTotal - discountAmount - pointsToUse);
 
   const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) return alert('Geolocation not supported.');
+    if (!navigator.geolocation) {
+      showToast('Geolocation not supported.', 'error');
+      return;
+    }
     setLocationLoading(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -194,10 +199,17 @@ export default function Checkout() {
 
   const placeOrder = async () => {
     if (isSubmitting) return;
-    if (!customerName.trim()) return alert('Please enter your name.');
-    if (!customerPhone.trim()) return alert('Please enter your WhatsApp number.');
+    if (!customerName.trim()) {
+      showToast('Please enter your name.', 'error');
+      return;
+    }
+    if (!customerPhone.trim()) {
+      showToast('Please enter your WhatsApp number.', 'error');
+      return;
+    }
     if (orderType === 'delivery' && !deliveryAddress.trim() && !mapsLink.trim()) {
-      return alert('Please add address or pin your location for delivery.');
+      showToast('Please add address or pin your location for delivery.', 'error');
+      return;
     }
 
     setIsSubmitting(true);
@@ -244,10 +256,11 @@ export default function Checkout() {
       const message = `Halo Admin, saya *${customerName}* baru melakukan order *#${orderId}* (${orderType}) dengan total Rp ${finalTotal.toLocaleString()}\nNo WA: ${customerPhone}${orderType === 'delivery' ? `\nAlamat: ${deliveryAddress || '-'}\nMaps: ${mapsLink || '-'}` : ''}\nCatatan: ${orderNotes || '-'}\nMohon konfirmasi ya.`;
       window.open(`https://wa.me/6287835209375?text=${encodeURIComponent(message)}`, '_blank');
 
+      showToast('Order placed successfully. Confirmation has been sent to admin.', 'success');
       clearCart();
       navigate('/menu');
     } catch (e: any) {
-      alert(`Checkout failed: ${e.message}`);
+      showToast(`Checkout failed: ${e.message}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
