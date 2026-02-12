@@ -1,5 +1,5 @@
 import { ShoppingBag, User } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { UlunLogo } from '../common/UlunLogo';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
@@ -10,7 +10,6 @@ export default function Navbar() {
   const { user, isAdmin } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -18,8 +17,6 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const isHome = location.pathname === '/';
-  const showQuickLinks = !isHome || scrolled;
 
   return (
     <nav className={`fixed top-0 w-full z-50 transition-all duration-500 border-b ${scrolled ? 'bg-[#0f0f0f]/90 backdrop-blur-md border-white/5 py-3' : 'bg-transparent border-transparent py-4'}`}>
@@ -28,13 +25,9 @@ export default function Navbar() {
           <UlunLogo className="h-7 md:h-9 w-auto" />
         </button>
 
-        <div className="hidden md:flex items-center gap-5 mr-auto ml-6">
-          {showQuickLinks && (
-            <>
-              <button onClick={() => navigate('/menu')} className="text-xs uppercase tracking-[0.2em] text-white/80 hover:text-[#C5A572]">Menu</button>
-              <button onClick={() => navigate('/reservation')} className="text-xs uppercase tracking-[0.2em] text-white/80 hover:text-[#C5A572]">Reserve</button>
-            </>
-          )}
+        <div className="flex items-center gap-3 md:gap-5 mr-auto ml-4 md:ml-6">
+          <button onClick={() => navigate('/menu')} className="text-[10px] md:text-xs uppercase tracking-[0.18em] md:tracking-[0.2em] text-white/80 hover:text-[#C5A572]">Menu</button>
+          <button onClick={() => navigate('/reservation')} className="text-[10px] md:text-xs uppercase tracking-[0.18em] md:tracking-[0.2em] text-white/80 hover:text-[#C5A572]">Reserve</button>
         </div>
 
         <div className="flex items-center gap-4">

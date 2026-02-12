@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Minus, Plus, Check, ShoppingBag, Package } from 'lucide-react';
+import { X, Minus, Plus, Check, ShoppingBag, Package, Heart, Sparkles } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import type { Product } from '../../types';
 
@@ -7,9 +7,21 @@ interface ProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product | null;
+  isFavorited?: boolean;
+  onToggleFavorite?: () => void;
+  isMostFavorited?: boolean;
+  favoriteCount?: number;
 }
 
-export default function ProductModal({ isOpen, onClose, product }: ProductModalProps) {
+export default function ProductModal({
+  isOpen,
+  onClose,
+  product,
+  isFavorited = false,
+  onToggleFavorite,
+  isMostFavorited = false,
+  favoriteCount = 0,
+}: ProductModalProps) {
   const [quantity, setQuantity] = useState(1);
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [totalPrice, setTotalPrice] = useState(0);
@@ -143,20 +155,48 @@ addToCart(finalItem, quantity);
         {/* Header Image */}
         <div className="relative h-48 md:h-56 shrink-0">
           <img src={product.image_url || 'https://via.placeholder.com/400'} className="w-full h-full object-cover rounded-t-2xl mask-image-b" />
-          <button onClick={onClose} className="absolute top-4 right-4 bg-black/50 p-2 rounded-full text-white backdrop-blur-md hover:bg-black/80 transition-colors">
-            <X size={20} />
-          </button>
-          {product.is_bundle && (
-             <div className="absolute bottom-4 left-4 bg-[#C5A572] text-black px-3 py-1 text-xs font-bold uppercase tracking-wider rounded shadow-lg flex items-center gap-1">
-               <Package size={12}/> Bundle Deal
-             </div>
-          )}
+           <div className="absolute top-4 right-4 flex items-center gap-2">
+            {onToggleFavorite && (
+              <button
+                onClick={onToggleFavorite}
+                className="md:hidden bg-black/50 p-2 rounded-full text-white backdrop-blur-md hover:bg-black/80 transition-colors"
+                aria-label="Toggle favorite"
+              >
+                <Heart size={16} fill={isFavorited ? 'currentColor' : 'none'} className={isFavorited ? 'text-rose-300' : ''} />
+              </button>
+            )}
+            <button onClick={onClose} className="bg-black/50 p-2 rounded-full text-white backdrop-blur-md hover:bg-black/80 transition-colors">
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <div>
             <h2 className="text-2xl font-serif text-white">{product.name}</h2>
+            <div className="md:hidden mt-3 flex flex-wrap gap-2">
+              {product.is_recommended && (
+                <span className="text-black text-[10px] font-bold tracking-widest uppercase bg-amber-200 px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
+                  <Sparkles size={10} /> Recommended
+                </span>
+              )}
+              {product.is_bundle && (
+                <span className="text-black text-[10px] font-bold tracking-widest uppercase bg-[#C5A572] px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
+                  <Package size={10} /> Bundle
+                </span>
+              )}
+              {product.category && (
+                <span className="text-white text-[10px] font-semibold tracking-widest uppercase bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full border border-white/20">
+                  {product.category}
+                </span>
+              )}
+              {isMostFavorited && (
+                <span className="text-white text-[10px] font-semibold bg-rose-500/90 px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
+                  <Heart size={10} fill="currentColor" /> Most loved {favoriteCount > 0 ? `(${favoriteCount})` : ''}
+                </span>
+              )}
+            </div>
             <p className="text-gray-400 text-sm mt-2 leading-relaxed">{product.description}</p>
           </div>
 

@@ -9,8 +9,6 @@ import PageSkeleton from '../components/common/PageSkeleton';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-const CATEGORIES = ['All', 'Bundles', 'Signatures', 'Hot Coffee', 'Iced', 'Tea', 'Pastry'];
-
 type SortOption = 'name-asc' | 'price-asc' | 'price-desc' | 'popular';
 
 export default function Menu() {
@@ -67,6 +65,24 @@ export default function Menu() {
     getProductsAndFavorites();
   }, [user]);
 
+  const categories = useMemo(() => {
+    const dynamicCategories = Array.from(
+      new Set(products.map((item) => item.category).filter((category) => !!category && category !== 'Bundles'))
+    ).sort((a, b) => a.localeCompare(b));
+
+    if (products.some((item) => item.is_bundle)) {
+      return ['All', 'Bundles', ...dynamicCategories];
+    }
+
+    return ['All', ...dynamicCategories];
+  }, [products]);
+
+  useEffect(() => {
+    if (!categories.includes(activeCategory)) {
+      setActiveCategory('All');
+    }
+  }, [categories, activeCategory]);
+
   const filteredProducts = useMemo(() => {
     const lowerSearch = searchQuery.trim().toLowerCase();
 
@@ -121,7 +137,15 @@ export default function Menu() {
 
   return (
     <div className="min-h-screen bg-[#f6f7fb] flex flex-col text-slate-900">
-      <ProductModal isOpen={!!selectedProduct} onClose={() => setSelectedProduct(null)} product={selectedProduct} />
+      <ProductModal
+        isOpen={!!selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+        product={selectedProduct}
+        isFavorited={selectedProduct ? myFavorites.includes(selectedProduct.id) : false}
+        onToggleFavorite={selectedProduct ? () => toggleFavorite(selectedProduct.id) : undefined}
+        isMostFavorited={selectedProduct ? top3FavoriteIds.includes(selectedProduct.id) : false}
+        favoriteCount={selectedProduct ? favoriteCounts[selectedProduct.id] || 0 : 0}
+      />
 
       <div className="h-20 shrink-0" />
 
@@ -162,7 +186,7 @@ export default function Menu() {
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar touch-pan-x">
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
@@ -185,8 +209,8 @@ export default function Menu() {
             <PageSkeleton rows={8} />
           ) : (
             <>
-              <div className="md:hidden mb-4 text-xs text-slate-500">Tip: tap a card to quickly customize or add.</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 md:gap-x-6 gap-y-6 md:gap-y-8">
+              <div className="md:hidden mb-4 text-xs text-slate-500">GoFood-style list: swipe categories, then tap a menu card to customize.</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 md:gap-x-6 gap-y-3 md:gap-y-8">
                 {filteredProducts.map((item) => (
                   <ProductCard
                     key={item.id}

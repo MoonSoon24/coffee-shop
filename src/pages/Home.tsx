@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -9,10 +9,20 @@ import {
   Coffee,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../supabaseClient';
+
+type WeeklyHighlight = {
+  id: number;
+  name: string;
+  price: number;
+  image: string;
+  quantity: number;
+};
 
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [weeklyHighlights, setWeeklyHighlights] = useState<WeeklyHighlight[]>([]);
 
   useEffect(() => {
     const elements = document.querySelectorAll('.reveal-on-scroll');
@@ -29,23 +39,76 @@ export default function Home() {
     return () => observer.disconnect();
   }, []);
 
-  const bestsellers = [
-    {
-      name: 'Gula Aren Latte',
-      price: 'Rp 28.000',
-      image: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=800&auto=format&fit=crop',
-    },
-    {
-      name: 'Caramel Macchiato',
-      price: 'Rp 32.000',
-      image: 'https://images.unsplash.com/photo-1485808191679-5f8c7c860695?q=80&w=800&auto=format&fit=crop',
-    },
-    {
-      name: 'Signature Cold Brew',
-      price: 'Rp 25.000',
-      image: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop',
-    },
-  ];
+  useEffect(() => {
+    const fetchWeeklyHighlights = async () => {
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      const dayOfWeek = now.getDay();
+      const diffFromMonday = (dayOfWeek + 6) % 7;
+      startOfWeek.setDate(now.getDate() - diffFromMonday);
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      const [{ data: weeklyItems, error: weeklyError }, { data: allProducts, error: productsError }] = await Promise.all([
+        supabase
+          .from('order_items')
+          .select('quantity, products(id, name, price, image_url), orders!inner(status, created_at)')
+          .eq('orders.status', 'completed')
+          .gte('orders.created_at', startOfWeek.toISOString()),
+        supabase.from('products').select('id, name, price, image_url, is_available'),
+      ]);
+
+      if (weeklyError) console.error('Error fetching weekly order items:', weeklyError);
+      if (productsError) console.error('Error fetching products for fallback:', productsError);
+
+      const purchasedMap = new Map<number, WeeklyHighlight>();
+
+      (weeklyItems || []).forEach((item: any) => {
+        const product = Array.isArray(item.products) ? item.products[0] : item.products;
+        if (!product?.id) return;
+
+        const current = purchasedMap.get(product.id);
+        const quantity = Number(item.quantity || 0);
+
+        if (current) {
+          current.quantity += quantity;
+          return;
+        }
+
+        purchasedMap.set(product.id, {
+          id: product.id,
+          name: product.name,
+          price: Number(product.price || 0),
+          image:
+            product.image_url ||
+            'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop',
+          quantity,
+        });
+      });
+
+      const topByCompletedOrders = [...purchasedMap.values()].sort((a, b) => b.quantity - a.quantity).slice(0, 3);
+
+      const selectedIds = new Set(topByCompletedOrders.map((item) => item.id));
+      const randomFillers = (allProducts || [])
+        .filter((product: any) => (product.is_available ?? true) && !selectedIds.has(product.id))
+        .sort(() => Math.random() - 0.5)
+        .slice(0, Math.max(0, 3 - topByCompletedOrders.length))
+        .map((product: any) => ({
+          id: product.id,
+          name: product.name,
+          price: Number(product.price || 0),
+          image:
+            product.image_url ||
+            'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop',
+          quantity: 0,
+        }));
+
+      setWeeklyHighlights([...topByCompletedOrders, ...randomFillers].slice(0, 3));
+    };
+
+    fetchWeeklyHighlights();
+  }, []);
+
+  const displayedHighlights = weeklyHighlights;
 
   return (
     <div className="min-h-screen bg-[#f6f7fb] text-slate-900 overflow-x-hidden">
@@ -101,6 +164,7 @@ export default function Home() {
           <div className="w-6 h-10 border-2 border-current rounded-full flex justify-center p-1">
             <div className="w-1 h-2 bg-current rounded-full" />
           </div>
+
         </div>
       </section>
 
@@ -122,9 +186,9 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {bestsellers.map((item, idx) => (
-              <div key={idx} className="group cursor-pointer reveal-on-scroll" onClick={() => navigate('/menu')}>
+          <div className="flex md:grid md:grid-cols-3 gap-0 md:gap-8 overflow-x-auto md:overflow-visible pb-2 no-scrollbar snap-x snap-mandatory">
+            {displayedHighlights.map((item) => (
+              <div key={item.id} className="group cursor-pointer reveal-on-scroll shrink-0 w-full md:w-auto snap-start" onClick={() => navigate('/menu')}>
                 <div className="overflow-hidden rounded-2xl mb-4 aspect-[4/5] relative shadow-sm border border-slate-200 bg-white">
                   <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors z-10" />
                   <img
@@ -144,9 +208,15 @@ export default function Home() {
                       <Star size={12} fill="currentColor" />
                     </div>
                   </div>
-                  <span className="text-lg font-serif text-slate-700">{item.price}</span>
+                  <span className="text-lg font-serif text-slate-700">Rp {item.price.toLocaleString('id-ID')}</span>
                 </div>
               </div>
+            ))}
+          </div>
+
+          <div className="md:hidden mt-3 flex justify-center gap-1.5">
+            {displayedHighlights.map((item) => (
+              <span key={`dot-${item.id}`} className="w-1.5 h-1.5 rounded-full bg-slate-300" />
             ))}
           </div>
         </div>

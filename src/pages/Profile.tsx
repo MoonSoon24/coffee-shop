@@ -146,33 +146,33 @@ export default function Profile() {
         <section className="mb-10">
           <h2 className="text-[#C5A572] text-xs uppercase tracking-widest mb-4">My Rewards</h2>
 
-            <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
-            <div className="bg-white border border-[#C5A572]/40 rounded-xl p-4 shadow-sm">
-              <p className="text-[11px] uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
+            <div className="grid grid-cols-4 gap-2 md:gap-4">
+            <div className="bg-white border border-[#C5A572]/40 rounded-xl p-2.5 md:p-4 shadow-sm min-w-0">
+              <p className="text-[9px] md:text-[11px] uppercase tracking-wide md:tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
                 <Wallet size={13} className="text-[#C5A572]" /> Balance
               </p>
-              <p className="text-3xl font-serif text-[#9c7a4c]">{pointsBalance}</p>
-              <p className="text-xs text-slate-500 mt-1">1 point = Rp 1 discount at checkout.</p>
+              <p className="text-lg md:text-3xl font-serif text-[#9c7a4c]">{pointsBalance}</p>
+              <p className="text-[10px] md:text-xs text-slate-500 mt-1 leading-tight">1 point = Rp 1 discount at checkout.</p>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-              <p className="text-[11px] uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
+            <div className="bg-white border border-slate-200 rounded-xl p-2.5 md:p-4 shadow-sm min-w-0">
+              <p className="text-[9px] md:text-[11px] uppercase tracking-wide md:tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
                 <TrendingUp size={13} className="text-emerald-500" /> Earned
               </p>
-              <p className="text-3xl font-serif text-emerald-600">+{pointsEarned}</p>
+              <p className="text-lg md:text-3xl font-serif text-emerald-600">+{pointsEarned}</p>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-              <p className="text-[11px] uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
+            <div className="bg-white border border-slate-200 rounded-xl p-2.5 md:p-4 shadow-sm min-w-0">
+              <p className="text-[9px] md:text-[11px] uppercase tracking-wide md:tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
                 <TrendingDown size={13} className="text-rose-500" /> Used
               </p>
-              <p className="text-3xl font-serif text-rose-600">-{pointsUsed}</p>
+              <p className="text-lg md:text-3xl font-serif text-rose-600">-{pointsUsed}</p>
             </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-              <p className="text-[11px] uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
+            <div className="bg-white border border-slate-200 rounded-xl p-2.5 md:p-4 shadow-sm min-w-0">
+              <p className="text-[9px] md:text-[11px] uppercase tracking-wide md:tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
                 <Clock3 size={13} className="text-amber-500" /> Pending
               </p>
-              <p className="text-3xl font-serif text-amber-600">{pointsPending}</p>
+              <p className="text-lg md:text-3xl font-serif text-amber-600">{pointsPending}</p>
             </div>
           </div>
 

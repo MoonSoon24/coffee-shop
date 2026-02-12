@@ -31,9 +31,9 @@ export default function ProductCard({
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col h-full touch-manipulation group hover:border-[#C5A572]/60 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md"
+      className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex md:flex-col h-full touch-manipulation group hover:border-[#C5A572]/60 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md"
     >
-      <div className="relative aspect-[4/3] overflow-hidden">
+      <div className="relative w-28 sm:w-36 md:w-full shrink-0 md:aspect-[4/3] overflow-hidden">
         <img
           src={item.image_url || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1000&auto=format&fit=crop'}
           alt={item.name}
@@ -47,41 +47,41 @@ export default function ProductCard({
               e.stopPropagation();
               onToggleFavorite();
             }}
-            className="absolute top-2 right-2 p-2 rounded-full bg-black/55 text-white hover:text-rose-300 border border-white/20"
+            className="hidden md:flex absolute top-2 right-2 p-2 rounded-full bg-black/55 text-white hover:text-rose-300 border border-white/20"
             aria-label="Toggle favorite"
           >
             <Heart size={14} fill={isFavorited ? 'currentColor' : 'none'} className={isFavorited ? 'text-rose-300' : ''} />
           </button>
         )}
 
-        <div className="absolute bottom-2 left-3 flex flex-wrap gap-2">
-          <span className="text-white text-[10px] font-semibold tracking-widest uppercase bg-white/80 backdrop-blur-sm px-2 py-1 rounded-full border border-white/20">
+        <div className="absolute bottom-2 left-2 md:left-3 flex flex-wrap gap-1.5 md:gap-2 max-w-[95%]">
+          <span className="hidden md:inline-flex text-white text-[10px] font-semibold tracking-widest uppercase bg-white/80 backdrop-blur-sm px-2 py-1 rounded-full border border-white/20">
             {item.category}
           </span>
 
           {item.is_bundle && (
-            <span className="text-black text-[10px] font-bold tracking-widest uppercase bg-[#C5A572] px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
+            <span className="hidden md:inline-flex text-black text-[10px] font-bold tracking-widest uppercase bg-[#C5A572] px-2 py-1 rounded-full shadow-sm items-center gap-1">
               <Package size={10} /> Bundle
             </span>
           )}
 
           {item.is_recommended && (
-            <span className="text-black text-[10px] font-bold tracking-widest uppercase bg-amber-200 px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
+            <span className="text-black text-[8px] md:text-[8px] font-bold tracking-widest uppercase bg-amber-200 px-1 py-1 rounded-full shadow-sm flex items-center gap-1">
               <Sparkles size={10} /> Recommended
             </span>
           )}
 
           {isMostFavorited && (
-            <span className="text-white text-[10px] font-semibold bg-rose-500/90 px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
+            <span className="hidden md:inline-flex text-white text-[10px] font-semibold bg-rose-500/90 px-2 py-1 rounded-full shadow-sm items-center gap-1">
               <Heart size={10} fill="currentColor" /> Most loved {favoriteCount > 0 ? `(${favoriteCount})` : ''}
             </span>
           )}
         </div>
       </div>
 
-      <div className="p-4 flex flex-col flex-1">
-        <div className="flex justify-between items-start mb-1 gap-3">
-          <h3 className="font-serif text-lg text-slate-900 leading-tight group-hover:text-[#9c7a4c] transition-colors line-clamp-2">
+      <div className="p-3 md:p-4 flex flex-col flex-1 min-w-0">
+        <div className="flex justify-between items-start mb-1 gap-2 md:gap-3">
+          <h3 className="font-serif text-base md:text-lg text-slate-900 leading-tight group-hover:text-[#9c7a4c] transition-colors line-clamp-2">
             {item.name}
           </h3>
 
@@ -93,13 +93,13 @@ export default function ProductCard({
           </div>
         </div>
 
-        <p className="text-slate-500 text-xs mb-4 font-light leading-relaxed line-clamp-2">
+        <p className="text-slate-500 text-xs mb-3 md:mb-4 font-light leading-relaxed line-clamp-2 md:line-clamp-2">
           {item.description || 'Premium ingredients, freshly prepared.'}
         </p>
 
         <div className="mt-auto">
           <button
-            className={`w-full py-3 rounded-xl border transition-all duration-200 flex items-center justify-center gap-2 text-xs uppercase tracking-widest active:scale-[0.98]
+            className={`w-full py-2.5 md:py-3 rounded-xl border transition-all duration-200 flex items-center justify-center gap-2 text-[11px] md:text-xs uppercase tracking-widest active:scale-[0.98]
               ${
                 hasModifiers
                   ? 'border-[#C5A572]/40 bg-[#C5A572]/10 text-[#9c7a4c] group-hover:bg-[#C5A572] group-hover:text-black'
