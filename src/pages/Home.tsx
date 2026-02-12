@@ -19,6 +19,9 @@ type WeeklyHighlight = {
   quantity: number;
 };
 
+const FALLBACK_IMAGE =
+  'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop';
+
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -78,9 +81,7 @@ export default function Home() {
           id: product.id,
           name: product.name,
           price: Number(product.price || 0),
-          image:
-            product.image_url ||
-            'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop',
+          image: product.image_url || FALLBACK_IMAGE,
           quantity,
         });
       });
@@ -91,14 +92,12 @@ export default function Home() {
       const randomFillers = (allProducts || [])
         .filter((product: any) => (product.is_available ?? true) && !selectedIds.has(product.id))
         .sort(() => Math.random() - 0.5)
-        .slice(0, Math.max(0, 3 - topByCompletedOrders.length))
+        .slice(0, topByCompletedOrders.length === 1 ? 2 : Math.max(0, 3 - topByCompletedOrders.length))
         .map((product: any) => ({
           id: product.id,
           name: product.name,
           price: Number(product.price || 0),
-          image:
-            product.image_url ||
-            'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop',
+          image: product.image_url || FALLBACK_IMAGE,
           quantity: 0,
         }));
 
@@ -188,7 +187,11 @@ export default function Home() {
 
           <div className="flex md:grid md:grid-cols-3 gap-0 md:gap-8 overflow-x-auto md:overflow-visible pb-2 no-scrollbar snap-x snap-mandatory">
             {displayedHighlights.map((item) => (
-              <div key={item.id} className="group cursor-pointer reveal-on-scroll shrink-0 w-full md:w-auto snap-start" onClick={() => navigate('/menu')}>
+              <div
+                key={item.id}
+                className="group cursor-pointer shrink-0 w-full min-w-full md:min-w-0 md:w-auto snap-start"
+                onClick={() => navigate('/menu')}
+              >
                 <div className="overflow-hidden rounded-2xl mb-4 aspect-[4/5] relative shadow-sm border border-slate-200 bg-white">
                   <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors z-10" />
                   <img
