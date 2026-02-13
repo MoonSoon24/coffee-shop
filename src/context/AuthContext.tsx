@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const adminEmails = ['admin@ulun.com', 'sbstn.stp@gmail.com'];
+    const adminEmails = ['jarulun04@gmail.com', 'sbstn.stp@gmail.com'];
     
     // Check if the user's email is in the allowed list
     setIsAdmin(adminEmails.includes(currentUser.email));
