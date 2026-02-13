@@ -727,7 +727,7 @@ export default function Admin() {
                   <div key={product.id} className={`admin-item-card relative ${!product.is_available ? 'inactive' : ''} ${product.is_bundle ? 'border-[#C5A572]/40 bg-[#C5A572]/5' : ''}`}>
                     
                     {/* --- 3-DOT MENU TRIGGER --- */}
-                    <div className="absolute top-2 right-2 z-10 product-menu-trigger">
+                    <div className="absolute top-2 right-2 z-5 product-menu-trigger">
                        <button onClick={() => setActiveMenuId(activeMenuId === product.id ? null : product.id)} className="p-1.5 bg-black/50 hover:bg-black rounded text-gray-300 hover:text-white transition-colors">
                          <MoreVertical size={16} />
                        </button>
@@ -736,10 +736,10 @@ export default function Admin() {
                             <button onClick={() => handleEditProduct(product)} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
                               <Edit2 size={12} /> Edit Details
                             </button>
-                            <button onClick={() => openModifierModal(product)} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-[#C5A572] flex items-center gap-2">
+                            <button onClick={() => openModifierModal(product)} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
                               <Settings size={12} /> Manage Add-ons
                             </button>
-                            <button onClick={() => { toggleRecommended(product.id, (product as any).is_recommended); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-amber-300 flex items-center gap-2">
+                            <button onClick={() => { toggleRecommended(product.id, (product as any).is_recommended); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
                               <Star size={12} /> {(product as any).is_recommended ? 'Remove Recommended' : 'Mark Recommended'}
                             </button>
                             <div className="h-px bg-white/10 my-1" />

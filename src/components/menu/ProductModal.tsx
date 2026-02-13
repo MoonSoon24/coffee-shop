@@ -204,7 +204,7 @@ addToCart(finalItem, quantity);
             <div key={mod.id} className="space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">{mod.name}</h3>
-                {mod.isRequired && <span className="text-[10px] bg-[#C5A572]/20 text-[#C5A572] px-2 py-0.5 rounded border border-[#C5A572]/30">Required</span>}
+                {mod.isRequired && <span className="text-[10px] bg-[#C5A572]/20 text-black px-2 py-0.5 rounded border border-[#C5A572]/30">Required</span>}
               </div>
 
               <div className="grid gap-2">
@@ -222,7 +222,7 @@ addToCart(finalItem, quantity);
                         <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-[#C5A572] bg-[#C5A572]' : 'border-gray-500'}`}>
                           {isSelected && <Check size={10} className="text-black" />}
                         </div>
-                        <span className="text-sm font-medium">{opt.name}</span>
+                        <span className="text-sm font-medium text-black">{opt.name}</span>
                       </div>
                       {opt.price > 0 && <span className="text-xs text-[#C5A572] font-mono">+Rp {opt.price.toLocaleString()}</span>}
                     </div>
@@ -239,7 +239,7 @@ addToCart(finalItem, quantity);
               placeholder="E.g. Extra hot, separate sauce..." 
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-[#C5A572] min-h-[80px]"
+              className="w-full bg-gray-100 border border-gray-200 rounded-lg p-3 text-sm text-black focus:outline-none focus:border-[#C5A572] min-h-[80px]"
             />
           </div>
         </div>
