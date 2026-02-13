@@ -14,17 +14,23 @@ import {
 } from 'lucide-react';
 import OrderDetailModal from '../components/common/OrderDetailModal';
 import PageSkeleton from '../components/common/PageSkeleton';
+import { useCart } from '../context/CartContext';
+import { useFeedback } from '../context/FeedbackContext';
 
 type LedgerRow = {
   order_id: number | null;
   entry_type: 'earn' | 'redeem' | 'expire' | 'adjustment' | 'refund';
   points_delta: number;
+  created_at?: string;
+  expires_at?: string | null;
 };
 
 type SortType = 'newest' | 'oldest' | 'highest' | 'lowest';
 
 export default function Profile() {
   const { user, signOut } = useAuth();
+  const { addToCart } = useCart();
+  const { showToast } = useFeedback();
   const [orders, setOrders] = useState<any[]>([]);
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +55,10 @@ export default function Profile() {
           .select('*, order_items(*, products(*))')
           .eq('user_id', user!.id)
           .order('created_at', { ascending: false }),
-        supabase.from('points_ledger').select('order_id, entry_type, points_delta').eq('user_id', user!.id),
+        supabase
+          .from('points_ledger')
+          .select('order_id, entry_type, points_delta, created_at')
+          .eq('user_id', user!.id),
       ]);
 
       setOrders(ordersRes.error ? [] : ordersRes.data || []);
@@ -59,6 +68,20 @@ export default function Profile() {
     }
 
     fetchProfileData();
+    const orderChannel = supabase
+      .channel(`profile-orders-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `user_id=eq.${user.id}` }, fetchProfileData)
+      .subscribe();
+
+    const pointsChannel = supabase
+      .channel(`profile-points-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'points_ledger', filter: `user_id=eq.${user.id}` }, fetchProfileData)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(orderChannel);
+      supabase.removeChannel(pointsChannel);
+    };
   }, [user, navigate]);
 
   const pointsByOrder = useMemo(() => {
@@ -97,6 +120,28 @@ export default function Profile() {
     };
   }, [ledger, orders]);
 
+  const loyaltyTier = useMemo(() => {
+    if (pointsEarned >= 5000) return 'Gold';
+    if (pointsEarned >= 2000) return 'Silver';
+    return 'Bronze';
+  }, [pointsEarned]);
+
+  const expiringSoonPoints = useMemo(() => {
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now);
+    sevenDaysFromNow.setDate(now.getDate() + 7);
+
+    return ledger
+      .filter((row) => row.points_delta > 0 && row.created_at)
+      .filter((row) => {
+        const earnedAt = new Date(row.created_at as string);
+        const expiresAt = new Date(earnedAt);
+        expiresAt.setDate(expiresAt.getDate() + 90);
+        return expiresAt >= now && expiresAt <= sevenDaysFromNow;
+      })
+      .reduce((sum, row) => sum + row.points_delta, 0);
+  }, [ledger]);
+
   const filteredOrders = useMemo(() => {
     const q = searchOrder.trim().toLowerCase();
 
@@ -124,6 +169,72 @@ export default function Profile() {
   const handleLogout = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const normalizeSelections = (raw: unknown) => {
+    if (!raw) return {} as Record<string, string[]>;
+
+    const parsed = typeof raw === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(raw);
+          } catch {
+            return {};
+          }
+        })()
+      : raw;
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {} as Record<string, string[]>;
+
+    const result: Record<string, string[]> = {};
+    Object.entries(parsed as Record<string, unknown>).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        result[key] = value.map((v) => String(v));
+      }
+    });
+
+    return result;
+  };
+
+  const handleBuyAgain = (order: any) => {
+    const items = order?.order_items || [];
+    if (!items.length) {
+      showToast('No items found for this order.', 'info');
+      return;
+    }
+
+    let addedCount = 0;
+    let skippedCount = 0;
+
+    items.forEach((orderItem: any) => {
+      const product = orderItem.products;
+      const quantity = Number(orderItem.quantity || 0);
+
+      if (!product || product.is_available === false || quantity < 1) {
+        skippedCount += 1;
+        return;
+      }
+
+      const cartProduct = {
+        ...product,
+        modifiers: {
+          selections: normalizeSelections(orderItem.modifiers),
+          notes: orderItem.notes || '',
+        },
+        modifiersData: Array.isArray((product as any).modifiers) ? (product as any).modifiers : [],
+      };
+
+      addToCart(cartProduct as any, quantity);
+      addedCount += quantity;
+    });
+
+    if (addedCount > 0) {
+      showToast(`Added ${addedCount} item(s) to your cart.${skippedCount ? ` ${skippedCount} item(s) unavailable.` : ''}`, 'success');
+      navigate('/menu');
+      return;
+    }
+
+    showToast('Unable to add items because they are unavailable.', 'error');
   };
 
   return (
@@ -176,10 +287,17 @@ export default function Profile() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600 leading-relaxed shadow-sm">
+          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600 leading-relaxed shadow-sm space-y-2">
             <p className="flex items-start gap-2">
               <Coins size={15} className="text-[#C5A572] mt-0.5 shrink-0" />
               Pending points are estimated from orders that are still in pending status and move to balance after completion.
+            </p>
+            <p>
+              Loyalty tier: <span className="font-semibold text-slate-900">{loyaltyTier}</span>
+              {loyaltyTier === 'Gold' ? ' • 1.20x point multiplier perk unlocked.' : loyaltyTier === 'Silver' ? ' • 1.10x point multiplier perk unlocked.' : ' • Place more orders to unlock Silver and Gold perks.'}
+            </p>
+            <p>
+              {expiringSoonPoints > 0 ? `Heads up: ${expiringSoonPoints} points expire within 7 days.` : 'No points are expiring within 7 days.'}
             </p>
           </div>
         </section>
@@ -241,7 +359,7 @@ export default function Profile() {
                 const orderPoints = pointsByOrder.get(order.id) || { earned: 0, used: Math.max(0, order.points_used || 0) };
 
                 return (
-                  <button
+                  <div
                     key={order.id}
                     onClick={() => setSelectedOrder(order)}
                     className="w-full text-left bg-white border border-slate-200 rounded-xl p-4 md:p-5 hover:border-slate-300 transition-colors shadow-sm"
@@ -260,11 +378,25 @@ export default function Profile() {
                       <span className="font-serif text-[#9c7a4c] text-lg">Rp {order.total_price.toLocaleString()}</span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs mb-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs mb-4">
                       <p className="text-slate-500">Points earned: <span className="text-emerald-600 font-medium">+{orderPoints.earned}</span></p>
                       <p className="text-slate-500 sm:text-right">Points used: <span className="text-rose-600 font-medium">-{orderPoints.used}</span></p>
                     </div>
-                  </button>
+                  <div className="flex gap-2">
+                      <button
+                        onClick={() => setSelectedOrder(order)}
+                        className="px-3 py-2 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
+                      >
+                        View details
+                      </button>
+                      <button
+                        onClick={() => handleBuyAgain(order)}
+                        className="px-3 py-2 text-xs rounded-lg bg-[#C5A572] text-black font-semibold hover:bg-[#b18f60]"
+                      >
+                        Buy Again
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
             </div>

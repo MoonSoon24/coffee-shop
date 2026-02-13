@@ -28,6 +28,10 @@ export default function ProductModal({
   const [notes, setNotes] = useState('');
   const { addToCart, removeFromCart } = useCart();
 
+  const getModifierGroups = (value: unknown) => {
+    if (!Array.isArray(value)) return [] as any[];
+    return value.filter((group: any) => group && typeof group === 'object' && Array.isArray(group.options));
+  };
 
   // Reset state when product opens
   useEffect(() => {
@@ -53,10 +57,7 @@ export default function ProductModal({
     if (!product) return;
     
     let addonsTotal = 0;
-    const modifierGroups =
-        (product as any).modifiersData ||
-        (product as any).modifiers ||
-        [];
+    const modifierGroups = getModifierGroups((product as any).modifiersData || (product as any).modifiers);
 
     modifierGroups.forEach((mod: any) => {
       const selectedIds = selections[mod.id] || [];
@@ -72,11 +73,7 @@ export default function ProductModal({
 
   if (!isOpen || !product) return null;
 
-  const modifierGroups =
-  (product as any).modifiersData ||
-  (product as any).modifiers ||
-  [];
-
+  const modifierGroups = getModifierGroups((product as any).modifiersData || (product as any).modifiers);
 
   // Toggle Logic (Radio vs Checkbox)
   const toggleSelection = (

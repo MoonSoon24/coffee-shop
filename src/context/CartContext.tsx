@@ -36,19 +36,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // Helper to generate a unique ID based on options
   // This ensures "Latte (Oat Milk)" and "Latte (Almond Milk)" are separate rows
-  const generateCartId = (product: Product, selections: Record<string, string[]>) => {
-  const baseId = product.id;
-  const selectionString = JSON.stringify(selections);
-  return `${baseId}-${selectionString}`;
-};
+  const generateCartId = (product: Product, selections: Record<string, string[]> = {}) => {
+    const baseId = product.id;
+    const selectionString = JSON.stringify(selections);
+    return `${baseId}-${selectionString}`;
+  };
 
 
   const addToCart = (product: Product, quantity: number = 1) => {
   setCart((prevCart) => {
     const modifiers = (product as any).modifiers;
+    const modifiersData = (product as any).modifiersData ?? (Array.isArray((product as any).modifiers) ? (product as any).modifiers : undefined);
     const basePrice = (product as any).basePrice ?? product.price;
+    const selections = modifiers?.selections || {};
 
-    const uniqueId = generateCartId(product, modifiers);
+    const uniqueId = generateCartId(product, selections);
 
     const existingItem = prevCart.find((item) => item.cartId === uniqueId);
 
@@ -65,6 +67,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         quantity,
         basePrice,
         modifiers,
+        modifiersData,
       };
       return [...prevCart, newItem];
     }

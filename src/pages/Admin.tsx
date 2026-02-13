@@ -89,6 +89,13 @@ export default function Admin() {
     if (!user) navigate('/login');
     fetchData();
 
+    const ordersChannel = supabase
+      .channel('admin-orders-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
     // Close search dropdowns when clicking outside
     function handleClickOutside(event: MouseEvent) {
       if (promoSearchRef.current && !promoSearchRef.current.contains(event.target as Node)) {
@@ -99,7 +106,10 @@ export default function Admin() {
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      supabase.removeChannel(ordersChannel);
+    };
   }, [user]);
 
   useEffect(() => {

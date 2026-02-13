@@ -30,6 +30,8 @@ export default function Checkout() {
   const [availablePoints, setAvailablePoints] = useState(0);
   const [useAllPoints, setUseAllPoints] = useState(false);
 
+  const adminWhatsAppNumber = (import.meta.env.VITE_ADMIN_WHATSAPP_NUMBER as string | undefined)?.trim();
+
   useEffect(() => {
     if (cart.length === 0) {
       navigate('/menu');
@@ -254,9 +256,13 @@ export default function Checkout() {
       if (itemsError) throw itemsError;
 
       const message = `Halo Admin, saya *${customerName}* baru melakukan order *#${orderId}* (${orderType}) dengan total Rp ${finalTotal.toLocaleString()}\nNo WA: ${customerPhone}${orderType === 'delivery' ? `\nAlamat: ${deliveryAddress || '-'}\nMaps: ${mapsLink || '-'}` : ''}\nCatatan: ${orderNotes || '-'}\nMohon konfirmasi ya.`;
-      window.open(`https://wa.me/6287835209375?text=${encodeURIComponent(message)}`, '_blank');
+      if (adminWhatsAppNumber) {
+        window.open(`https://wa.me/${adminWhatsAppNumber}?text=${encodeURIComponent(message)}`, '_blank');
+      } else {
+        showToast('Order created, but admin WhatsApp number is not configured (VITE_ADMIN_WHATSAPP_NUMBER).', 'info');
+      }
 
-      showToast('Order placed successfully. Confirmation has been sent to admin.', 'success');
+      showToast('Order placed successfully.', 'success');
       clearCart();
       navigate('/menu');
     } catch (e: any) {
@@ -320,6 +326,9 @@ export default function Checkout() {
                     <MapPin size={12} /> View pinned map
                   </a>
                 )}
+                <p className="text-xs rounded-lg border border-amber-200 bg-amber-50 text-amber-700 px-3 py-2">
+                  Delivery fee is paid by the buyer directly to courier upon delivery.
+                </p>
               </div>
             )}
 
