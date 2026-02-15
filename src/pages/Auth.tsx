@@ -136,7 +136,7 @@ export default function Auth() {
             disabled={loading}
             className="w-full bg-[#C5A572] text-black font-bold py-3 rounded-lg mt-4 hover:bg-[#b09366] transition-all active:scale-95 flex justify-center items-center"
           >
-            {loading ? <Loader2 className="animate-spin" /> : isLogin ? 'Sign In' : 'Create Account'}
+            {loading ? <Loader2 className="animate-spin" /> : isLogin ? 'Log In' : 'Create Account'}
           </button>
         </form>
 
@@ -145,7 +145,7 @@ export default function Auth() {
             onClick={() => setIsLogin(!isLogin)}
             className="text-sm text-white/60 hover:text-[#C5A572] underline underline-offset-4"
           >
-            {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+            {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Log In'}
           </button>
         </div>
       </div>
