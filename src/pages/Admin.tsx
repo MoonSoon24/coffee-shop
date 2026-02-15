@@ -728,7 +728,7 @@ export default function Admin() {
                     
                     {/* --- 3-DOT MENU TRIGGER --- */}
                     <div className="absolute top-2 right-2 z-5 product-menu-trigger">
-                       <button onClick={() => setActiveMenuId(activeMenuId === product.id ? null : product.id)} className="p-1.5 bg-black/50 hover:bg-black rounded text-gray-300 hover:text-white transition-colors">
+                       <button onClick={() => setActiveMenuId(activeMenuId === product.id ? null : product.id)} className="p-1.5 rounded text-gray-300 hover:text-white transition-colors">
                          <MoreVertical size={16} />
                        </button>
                        {activeMenuId === product.id && (

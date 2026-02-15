@@ -211,7 +211,7 @@ export default function Menu() {
             <PageSkeleton rows={8} />
           ) : (
             <>
-              <div className="md:hidden mb-4 text-xs text-slate-500">GoFood-style list: swipe categories, then tap a menu card to customize.</div>
+              <div className="md:hidden mb-4 text-xs text-slate-500">Swipe categories, then tap a menu card to customize.</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 md:gap-x-6 gap-y-3 md:gap-y-8">
                 {filteredProducts.map((item) => (
                   <ProductCard

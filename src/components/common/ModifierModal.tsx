@@ -3,7 +3,6 @@ import { X, Plus, Trash2, Settings, Circle, CheckSquare } from 'lucide-react';
 import type { Product } from '../../types';
 import { useFeedback } from '../../context/FeedbackContext';
 
-// --- Shared Types ---
 export type ModifierOption = {
   id: string;
   name: string;
@@ -199,7 +198,7 @@ export default function ModifierModal({ isOpen, onClose, product, onSave }: Modi
                         />
                       </div>
 
-                      <button onClick={() => removeOption(category.id, option.id)} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-500 transition-all">
+                      <button onClick={() => removeOption(category.id, option.id)} className="text-gray-600 hover:text-red-500 transition-all">
                         <X size={14} />
                       </button>
                     </div>

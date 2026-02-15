@@ -1,4 +1,4 @@
-import { Heart, Plus, Settings, Sparkles, Package } from 'lucide-react';
+import { Heart, Plus, Sparkles, Package, SlidersHorizontal } from 'lucide-react';
 import type { Product } from '../../types';
 
 interface ProductCardProps {
@@ -98,16 +98,18 @@ export default function ProductCard({
         </p>
 
         <div className="mt-auto">
+          {hasModifiers && (
+            <div className="mb-2 flex items-center gap-1.5 text-[#9c7a4c]/90">
+              <SlidersHorizontal size={12} />
+              <span className="text-[10px] uppercase tracking-wider font-semibold">Customizable</span>
+            </div>
+          )}
           <button
             className={`w-full py-2.5 md:py-3 rounded-xl border transition-all duration-200 flex items-center justify-center gap-2 text-[11px] md:text-xs uppercase tracking-widest active:scale-[0.98]
-              ${
-                hasModifiers
-                  ? 'border-[#C5A572]/40 bg-[#C5A572]/10 text-[#9c7a4c] group-hover:bg-[#C5A572] group-hover:text-black'
-                  : 'border-slate-200 bg-slate-50 text-slate-700 group-hover:bg-[#C5A572] group-hover:text-black group-hover:border-[#C5A572]'
+              border-[#C5A572]/40 bg-[#C5A572]/10 text-[#9c7a4c] group-hover:bg-[#C5A572] group-hover:text-black'
               }`}
-          >
-            {hasModifiers ? <Settings size={14} /> : <Plus size={14} />}
-            {hasModifiers ? 'Customize' : 'Add'}
+          ><Plus size={14} />
+            Add
           </button>
         </div>
       </div>
