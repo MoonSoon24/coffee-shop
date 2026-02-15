@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react'; // Removed useRef as it's no longer needed for the hash check
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Loader2 } from 'lucide-react';
 import { useFeedback } from '../context/FeedbackContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -11,6 +12,23 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { showToast } = useFeedback();
+  const { user, loading: authLoading, isAdmin } = useAuth();
+  
+  // 1. Point this to your new route
+  const configuredSiteUrl = (import.meta.env.VITE_SITE_URL as string | undefined)?.trim();
+  const getEmailRedirectUrl = () => {
+    const baseUrl = configuredSiteUrl || window.location.origin;
+    // CHANGED: Redirect to /email-confirmed instead of /login
+    return `${baseUrl.replace(/\/$/, '')}/email-confirmed`;
+  };
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+    // 2. We removed the hash checking logic here because the user 
+    // will now land on the 'EmailConfirmed' page, not here.
+    
+    navigate(isAdmin ? '/admin' : '/menu', { replace: true });
+  }, [authLoading, user, isAdmin, navigate]);
 
   const getFriendlyError = (message: string) => {
     const lower = message.toLowerCase();
@@ -49,7 +67,8 @@ export default function Auth() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/login`,
+            // This now sends the user to /email-confirmed
+            emailRedirectTo: getEmailRedirectUrl(),
           },
         });
         if (error) throw error;
@@ -73,7 +92,6 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen bg-[#0f0f0f] flex flex-col items-center justify-center p-4 relative">
-      {/* Background Image */}
       <div className="absolute inset-0 z-0">
         <img
           src="https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=2000&auto=format&fit=crop"

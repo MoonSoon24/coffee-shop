@@ -110,7 +110,7 @@ export default function Profile() {
 
     const pending = orders
       .filter((order) => order.status === 'pending')
-      .reduce((sum, order) => sum + Math.max(0, Math.floor((order.total_price || 0) - (order.points_used || 0))), 0);
+      .reduce((sum, order) => sum + Math.max(0, Math.floor((order.total_price || 0) * 0.005)), 0);
 
     return {
       pointsBalance: Math.max(0, earned - used),

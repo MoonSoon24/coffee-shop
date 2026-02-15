@@ -177,6 +177,7 @@ export default function Checkout() {
   }, [user, useAllPoints, availablePoints, cartTotal, discountAmount]);
 
   const finalTotal = Math.max(0, cartTotal - discountAmount - pointsToUse);
+  const estimatedPointsEarned = Math.floor(finalTotal * 0.005);
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -387,6 +388,12 @@ export default function Checkout() {
             {discountAmount > 0 && <div className="flex justify-between text-emerald-600"><span>Promo</span><span>-Rp {discountAmount.toLocaleString()}</span></div>}
             {pointsToUse > 0 && <div className="flex justify-between text-emerald-600"><span>Points</span><span>-Rp {pointsToUse.toLocaleString()}</span></div>}
             <div className="flex justify-between text-lg font-serif pt-1"><span>Total</span><span className="text-[#9c7a4c]">Rp {finalTotal.toLocaleString()}</span></div>
+            <p className="text-xs text-slate-500 pt-1">
+              {user
+                ? `Points earned from this order: +${estimatedPointsEarned} (0.5% of total)`
+                : `If you register, you could earn +${estimatedPointsEarned} points from this order (0.5% of total).`}
+            </p>
+            
           </div>
 
           <button onClick={placeOrder} disabled={isSubmitting} className="w-full mt-5 rounded-xl bg-[#C5A572] text-black font-semibold py-3 hover:bg-[#b18f60]">

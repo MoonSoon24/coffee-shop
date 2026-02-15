@@ -8,6 +8,7 @@ import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import Reservation from './pages/Reservation';
 import Checkout from './pages/Checkout';
+import EmailConfirmed from './pages/EmailConfirmed';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import { FeedbackProvider } from './context/FeedbackContext';
@@ -31,6 +32,7 @@ function App() {
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/reservation" element={<Reservation />} />
                 <Route path="/checkout" element={<Checkout />} />
+                <Route path="/email-confirmed" element={<EmailConfirmed />} />
               </Routes>
             </div>
           </Router>
