@@ -718,45 +718,58 @@ export default function Admin() {
             </div>
 
             <div className="admin-main-content">
-              {products.map(product => {
-                const originalSum = product.is_bundle 
-                  ? (product as any).product_bundles?.reduce((sum: number, pb: any) => sum + ((pb.products?.price || 0) * pb.quantity), 0)
-                  : 0;
+  {products.map(product => {
+    const originalSum = product.is_bundle 
+      ? (product as any).product_bundles?.reduce((sum: number, pb: any) => sum + ((pb.products?.price || 0) * pb.quantity), 0)
+      : 0;
 
-                return (
-                  <div key={product.id} className={`admin-item-card relative ${!product.is_available ? 'inactive' : ''} ${product.is_bundle ? 'border-[#C5A572]/40 bg-[#C5A572]/5' : ''}`}>
-                    
-                    {/* --- 3-DOT MENU TRIGGER --- */}
-                    <div className="absolute top-2 right-2 z-30 product-menu-trigger">
-                       <button onClick={() => setActiveMenuId(activeMenuId === product.id ? null : product.id)} className="p-1.5 rounded text-gray-300 hover:text-white transition-colors">
-                         <MoreVertical size={16} />
-                       </button>
-                       {activeMenuId === product.id && (
-                         <div className="absolute right-0 top-full mt-1 w-40 max-w-[calc(100vw-1rem)] bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl overflow-hidden py-1 z-[60] max-sm:top-auto max-sm:bottom-full max-sm:mb-1">
-                            <button onClick={() => handleEditProduct(product)} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
-                              <Edit2 size={12} /> Edit Details
-                            </button>
-                            <button onClick={() => openModifierModal(product)} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
-                              <Settings size={12} /> Manage Add-ons
-                            </button>
-                            <button onClick={() => { toggleRecommended(product.id, (product as any).is_recommended); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
-                              <Star size={12} /> {(product as any).is_recommended ? 'Remove Recommended' : 'Mark Recommended'}
-                            </button>
-                            <div className="h-px bg-white/10 my-1" />
-                            <button onClick={() => { openConfirm(product.is_available ? "Archive" : "Restore", "Are you sure?", async () => toggleProductAvailability(product.id, product.is_available), true); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-red-500/10 flex items-center gap-2">
-                              {product.is_available ? <Trash2 size={12} /> : <RefreshCcw size={12} />} {product.is_available ? 'Archive' : 'Restore'}
-                            </button>
-                         </div>
-                       )}
-                    </div>
+    const isMenuOpen = activeMenuId === product.id;
 
+    return (
+      <div 
+        key={product.id} 
+        className={`admin-item-card relative 
+          ${(!product.is_available && !isMenuOpen) ? 'inactive' : ''} 
+          ${product.is_bundle ? 'border-[#C5A572]/40 bg-[#C5A572]/5' : ''} 
+          ${isMenuOpen ? 'z-[100] !opacity-100 !filter-none' : 'z-0'}`}
+      >
+        
+            <div className="absolute top-2 right-2 z-10 product-menu-trigger">
+              <button 
+                onClick={() => setActiveMenuId(isMenuOpen ? null : product.id)} 
+                className="p-1.5 rounded text-gray-300 hover:text-white transition-colors"
+              >
+                <MoreVertical size={16} />
+              </button>
+
+              {isMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-40 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-2xl py-1 z-[110]">
+                  <button onClick={() => handleEditProduct(product)} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
+                      <Edit2 size={12} /> Edit Details
+                    </button>
+                    <button onClick={() => openModifierModal(product)} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
+                      <Settings size={12} /> Manage Add-ons
+                    </button>
+                    <button onClick={() => { toggleRecommended(product.id, (product as any).is_recommended); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
+                      <Star size={12} /> {(product as any).is_recommended ? 'Remove Recommended' : 'Mark Recommended'}
+                    </button>
+                    <div className="h-px bg-white/10 my-1" />
+                    <button onClick={() => { openConfirm(product.is_available ? "Archive" : "Restore", "Are you sure?", async () => toggleProductAvailability(product.id, product.is_available), true); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
+                      {product.is_available ? <Trash2 size={12} /> : <RefreshCcw size={12} />} {product.is_available ? 'Archive' : 'Restore'}
+                    </button>
+                </div>
+              )}
+            </div>
                     <div className="w-20 h-20 bg-gray-800 rounded overflow-hidden shrink-0 relative">
                       <img src={product.image_url || 'https://via.placeholder.com/100'} className="w-full h-full object-cover" />
-                      {product.is_bundle && <div className="absolute top-0 left-0 bg-[#C5A572] text-black text-[10px] font-bold px-1.5 py-0.5 rounded-br shadow-sm">BUNDLE</div>}
-                      {!product.is_available && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="admin-badge-archived">Archived</span></div>}
+                      
+                      {!product.is_available && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-0">
+                          <span className="admin-badge-archived">Archived</span>
+                        </div>
+                      )}
                     </div>
-                    
-                    <div className="flex-1 pr-6"> {/* Added padding-right to avoid overlap with menu */}
+                    <div className="flex-1 pr-6">
                       <h4 className="text-white font-medium flex items-center gap-2">{product.name}{(product as any).is_recommended && <span className="text-[10px] bg-amber-200 text-black px-1.5 py-0.5 rounded-full">Recommended</span>}</h4>
                       <div className="flex items-center gap-2">
                         <p className="admin-price">Rp {product.price.toLocaleString()}</p>
