@@ -727,12 +727,12 @@ export default function Admin() {
                   <div key={product.id} className={`admin-item-card relative ${!product.is_available ? 'inactive' : ''} ${product.is_bundle ? 'border-[#C5A572]/40 bg-[#C5A572]/5' : ''}`}>
                     
                     {/* --- 3-DOT MENU TRIGGER --- */}
-                    <div className="absolute top-2 right-2 z-5 product-menu-trigger">
+                    <div className="absolute top-2 right-2 z-30 product-menu-trigger">
                        <button onClick={() => setActiveMenuId(activeMenuId === product.id ? null : product.id)} className="p-1.5 rounded text-gray-300 hover:text-white transition-colors">
                          <MoreVertical size={16} />
                        </button>
                        {activeMenuId === product.id && (
-                         <div className="absolute right-0 top-full mt-1 w-40 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl overflow-hidden py-1 z-20">
+                         <div className="absolute right-0 top-full mt-1 w-40 max-w-[calc(100vw-1rem)] bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl overflow-hidden py-1 z-[60] max-sm:top-auto max-sm:bottom-full max-sm:mb-1">
                             <button onClick={() => handleEditProduct(product)} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
                               <Edit2 size={12} /> Edit Details
                             </button>
