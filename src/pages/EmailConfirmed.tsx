@@ -22,6 +22,13 @@ export default function EmailConfirmed() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<VerificationStatus>('checking');
 
+  const goToLogin = async () => {
+    // Always clear callback-created sessions before opening the login page,
+    // otherwise Auth page immediately redirects authenticated users to /menu.
+    await supabase.auth.signOut();
+    navigate('/login', { replace: true });
+  };
+
   const message = useMemo(() => {
     if (status === 'success') {
       return {
@@ -55,7 +62,12 @@ export default function EmailConfirmed() {
 
       const hasAuthError = !!(queryParams.get('error') || hashParams.get('error'));
       if (hasAuthError) {
-        if (active) setStatus('failed');
+        // If a valid session already exists (e.g. callback consumed before reload),
+        // show success to avoid false failures.
+        const { data } = await supabase.auth.getSession();
+        if (active) {
+          setStatus(data.session?.user ? 'success' : 'failed');
+        }
         return;
       }
 
@@ -83,6 +95,13 @@ export default function EmailConfirmed() {
       }
 
       if (active) setStatus('failed');
+
+      // Final fallback: the link params may be cleaned up by the browser/router,
+      // but an authenticated callback session can still exist.
+      const { data } = await supabase.auth.getSession();
+      if (active && data.session?.user) {
+        setStatus('success');
+      }
     };
 
     verifyEmail();
@@ -100,7 +119,7 @@ export default function EmailConfirmed() {
 
         <button
           type="button"
-          onClick={() => navigate('/login')}
+          onClick={goToLogin}
           className="w-full bg-[#C5A572] text-black font-bold py-3 rounded-lg hover:bg-[#b09366] transition-all active:scale-95"
         >
           Go to Login
