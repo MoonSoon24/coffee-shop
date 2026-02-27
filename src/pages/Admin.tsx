@@ -17,7 +17,7 @@ import { useFeedback } from '../context/FeedbackContext';
 export default function Admin() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const { showToast, showPrompt } = useFeedback();
+  const { showToast } = useFeedback();
   const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'promotions'>('orders');
   
   const [orders, setOrders] = useState<any[]>([]);
@@ -425,31 +425,6 @@ export default function Admin() {
     fetchData();
   };
 
-  const assignCourierToOrder = async (order: any) => {
-    const courierPhone = await showPrompt({
-      title: 'Assign Courier',
-      message: 'Enter courier WhatsApp number (e.g. 62812...)',
-      placeholder: '62812...',
-      confirmText: 'Assign',
-    });
-    if (!courierPhone) return;
-
-    const { error } = await supabase
-      .from('orders')
-      .update({ courier_phone: courierPhone, status: 'assigned' })
-      .eq('id', order.id);
-
-    if (error) {
-      showToast(error.message, 'error');
-      return;
-    }
-
-    const courierMessage = `Halo, ada pengantaran order #${order.id}\nNama pelanggan: ${order.customer_name}\nNo pelanggan: ${order.customer_phone || '-'}\nAlamat: ${order.address || '-'}\nMaps: ${order.maps_link || '-'}\nTotal: Rp ${Number(order.total_price || 0).toLocaleString()}\nNotes: ${order.notes || '-'}\nMohon konfirmasi penerimaan tugas.`;
-    window.open(`https://wa.me/${courierPhone}?text=${encodeURIComponent(courierMessage)}`, '_blank');
-    showToast('Courier assigned successfully.', 'success');
-    fetchData();
-  };
-
   // Helper Wrappers
   const getScopeLabel = (p: Promotion) => {
     if (p.scope === 'order') return 'Entire Order';
@@ -582,14 +557,7 @@ export default function Admin() {
                     </ul>
                   </div>
                   <div className="flex flex-col gap-2 min-w-[120px]">
-                    {order.type === 'delivery' && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); assignCourierToOrder(order); }}
-                        className="text-xs rounded-md border border-[#C5A572]/50 text-[#C5A572] px-2 py-1 hover:bg-[#C5A572]/10"
-                      >
-                        Assign Courier
-                      </button>
-                    )}
+                    {order.type === 'delivery'}
                     <select 
                       value={order.status}
                       onChange={(e) => updateOrderStatus(order.id, e.target.value)}

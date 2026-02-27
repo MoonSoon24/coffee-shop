@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'; // Removed useRef as it's no longer needed for the hash check
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useFeedback } from '../context/FeedbackContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,6 +10,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { showToast } = useFeedback();
   const { user, loading: authLoading, isAdmin } = useAuth();
@@ -121,14 +122,31 @@ export default function Auth() {
           </div>
           <div>
             <label className="block text-xs uppercase tracking-wider text-gray-500 mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:border-[#C5A572] focus:outline-none transition-colors"
-              placeholder="••••••••"
-              required
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-lg p-3 pr-12 text-white focus:border-[#C5A572] focus:outline-none transition-colors"
+                placeholder="••••••••"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute inset-y-0 right-0 px-3 text-white/60 hover:text-[#C5A572] transition-colors"
+              >
+                <span className="relative block h-5 w-5">
+                  <Eye
+                    className={`absolute inset-0 h-5 w-5 transition-all duration-200 ${showPassword ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-75 -rotate-12'}`}
+                  />
+                  <EyeOff
+                    className={`absolute inset-0 h-5 w-5 transition-all duration-200 ${showPassword ? 'opacity-0 scale-75 rotate-12' : 'opacity-100 scale-100 rotate-0'}`}
+                  />
+                </span>
+              </button>
+            </div>
           </div>
 
           <button

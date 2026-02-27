@@ -30,8 +30,6 @@ export default function Checkout() {
   const [availablePoints, setAvailablePoints] = useState(0);
   const [useAllPoints, setUseAllPoints] = useState(false);
 
-  const adminWhatsAppNumber = (import.meta.env.VITE_ADMIN_WHATSAPP_NUMBER as string | undefined)?.trim();
-
   useEffect(() => {
     if (cart.length === 0) {
       navigate('/menu');
@@ -219,7 +217,7 @@ export default function Checkout() {
 
     try {
       const customOrderId = generateOrderId();
-      const { data: orderData, error: orderError } = await supabase
+      const { error: orderError } = await supabase
         .from('orders')
         .insert([
           {
@@ -238,12 +236,11 @@ export default function Checkout() {
             status: 'pending',
             user_id: user?.id || null,
           },
-        ])
-        .select();
+        ]);
 
       if (orderError) throw orderError;
 
-      const orderId = orderData[0].id;
+      const orderId = customOrderId;
       const orderItemsData = cart.map((item) => ({
         order_id: orderId,
         product_id: item.id,
@@ -255,13 +252,6 @@ export default function Checkout() {
 
       const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData);
       if (itemsError) throw itemsError;
-
-      const message = `Halo Admin, saya *${customerName}* baru melakukan order *#${orderId}* (${orderType}) dengan total Rp ${finalTotal.toLocaleString()}\nNo WA: ${customerPhone}${orderType === 'delivery' ? `\nAlamat: ${deliveryAddress || '-'}\nMaps: ${mapsLink || '-'}` : ''}\nCatatan: ${orderNotes || '-'}\nMohon konfirmasi ya.`;
-      if (adminWhatsAppNumber) {
-        window.open(`https://wa.me/${adminWhatsAppNumber}?text=${encodeURIComponent(message)}`, '_blank');
-      } else {
-        showToast('Order created, but admin WhatsApp number is not configured (VITE_ADMIN_WHATSAPP_NUMBER).', 'info');
-      }
 
       showToast('Order placed successfully.', 'success');
       clearCart();
