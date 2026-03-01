@@ -6,6 +6,18 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
 import { useFeedback } from '../context/FeedbackContext';
 
+declare global {
+  interface Window {
+    snap: any;
+  }
+}
+
+const MIDTRANS_CLIENT_KEY = import.meta.env.VITE_MIDTRANS_CLIENT_KEY as string | undefined;
+const IS_MIDTRANS_PRODUCTION = String(import.meta.env.VITE_MIDTRANS_IS_PRODUCTION || 'false') === 'true';
+const MIDTRANS_SNAP_URL = IS_MIDTRANS_PRODUCTION
+  ? 'https://app.midtrans.com/snap/snap.js'
+  : 'https://app.sandbox.midtrans.com/snap/snap.js';
+
 export default function Checkout() {
   const navigate = useNavigate();
   const { cart, cartTotal, clearCart, cartCount } = useCart();
@@ -30,6 +42,26 @@ export default function Checkout() {
   const [availablePoints, setAvailablePoints] = useState(0);
   const [useAllPoints, setUseAllPoints] = useState(false);
 
+  useEffect(() => {
+    if (!MIDTRANS_CLIENT_KEY) return;
+
+    const existingScript = document.querySelector<HTMLScriptElement>('script[data-midtrans-snap="true"]');
+    if (existingScript) return;
+
+    const script = document.createElement('script');
+    script.src = MIDTRANS_SNAP_URL;
+    script.setAttribute('data-client-key', MIDTRANS_CLIENT_KEY);
+    script.setAttribute('data-midtrans-snap', 'true');
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+  }, []);
+  
   useEffect(() => {
     if (cart.length === 0) {
       navigate('/menu');
@@ -213,10 +245,10 @@ export default function Checkout() {
       return;
     }
 
-    setIsSubmitting(true);
-
     try {
       const customOrderId = generateOrderId();
+
+      setIsSubmitting(true);
       const { error: orderError } = await supabase
         .from('orders')
         .insert([
@@ -253,12 +285,44 @@ export default function Checkout() {
       const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData);
       if (itemsError) throw itemsError;
 
-      showToast('Order placed successfully.', 'success');
-      clearCart();
-      navigate('/menu');
+      const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-midtrans-transaction', {
+        body: {
+          order_id: customOrderId,
+          gross_amount: finalTotal,
+          customer_name: customerName,
+          customer_phone: customerPhone,
+        },
+      });
+
+      if (edgeError || !edgeData?.token) {
+        throw new Error(edgeError?.message || edgeData?.error || 'Failed to retrieve payment token');
+      }
+
+      if (!window.snap) throw new Error('Midtrans Snap script is not loaded.');
+
+      window.snap.pay(edgeData.token, {
+        onSuccess: async (_result: any) => {
+          await supabase.from('orders').update({ status: 'paid' }).eq('id', customOrderId);
+          showToast('Payment successful!', 'success');
+          clearCart();
+          navigate('/menu');
+        },
+        onPending: (_result: any) => {
+          showToast('Waiting for your payment!', 'info');
+          clearCart();
+          navigate('/menu');
+        },
+        onError: (_result: any) => {
+          showToast('Payment failed!', 'error');
+          setIsSubmitting(false);
+        },
+        onClose: () => {
+          showToast('You closed the popup without finishing the payment.', 'error');
+          setIsSubmitting(false);
+        },
+      });
     } catch (e: any) {
       showToast(`Checkout failed: ${e.message}`, 'error');
-    } finally {
       setIsSubmitting(false);
     }
   };
