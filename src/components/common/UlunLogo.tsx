@@ -1,9 +1,14 @@
-import logoPng from '../../assets/ulunLogo.png'; 
+import logoSvg from '../../assets/ulunLogo.svg';
 
-export const UlunLogo = ({ className = "h-8" }: { className?: string }) => (
-  <img 
-    src={logoPng} 
-    alt="Ulun Coffee" 
-    className={`${className} object-contain brightness-0 `} 
+interface UlunLogoProps {
+  className?: string;
+  invertOnDark?: boolean;
+}
+
+export const UlunLogo = ({ className = 'h-8', invertOnDark = true }: UlunLogoProps) => (
+  <img
+    src={logoSvg}
+    alt="Ulun Coffee"
+    className={`${className} ulun-logo object-contain ${invertOnDark ? 'ulun-logo--adaptive' : ''}`}
   />
 );

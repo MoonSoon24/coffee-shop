@@ -146,6 +146,10 @@
   }
 }
 
+.admin-main-content-search {
+  grid-column: 1 / -1;
+}
+
 /* Cards */
 .admin-card {
   background-color: #141414;
@@ -286,6 +290,18 @@
 .action-btn:hover {
   color: white;
   background-color: rgba(0, 0, 0, 0.8);
+}
+
+.ulun-logo {
+  transition: filter 0.2s ease;
+}
+
+.ulun-logo--adaptive {
+  filter: brightness(0) invert(1);
+}
+
+.light-theme .ulun-logo--adaptive {
+  filter: none;
 }
 
 .light-theme {

@@ -84,6 +84,7 @@ export default function Admin() {
   } | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [orderSearch, setOrderSearch] = useState('');
+  const [productListSearch, setProductListSearch] = useState('');
 
   useEffect(() => {
     if (!user) navigate('/login');
@@ -449,6 +450,16 @@ export default function Admin() {
     return [];
   };
 
+  const filteredProducts = products.filter((product) => {
+    const term = productListSearch.toLowerCase().trim();
+    if (!term) return true;
+    return (
+      String(product.name || '').toLowerCase().includes(term) ||
+      String(product.category || '').toLowerCase().includes(term) ||
+      String(product.description || '').toLowerCase().includes(term)
+    );
+  });
+
    const filteredOrders = orders.filter((order) => {
     const term = orderSearch.toLowerCase().trim();
     if (!term) return true;
@@ -481,6 +492,7 @@ export default function Admin() {
             isOpen={isModifierModalOpen}
             onClose={() => setIsModifierModalOpen(false)}
             product={currentProductForModifiers}
+            availableProducts={products}
             onSave={handleSaveModifiers}
           />
        )}
@@ -686,7 +698,18 @@ export default function Admin() {
             </div>
 
             <div className="admin-main-content">
-  {products.map(product => {
+  <div className="mb-3 admin-main-content-search">
+                <input
+                  value={productListSearch}
+                  onChange={(e) => setProductListSearch(e.target.value)}
+                  placeholder="Search product by name, category, or description..."
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+                />
+              </div>
+
+  {filteredProducts.length === 0 ? (
+    <p className="text-gray-500 text-center py-10">No products found.</p>
+  ) : filteredProducts.map(product => {
     const originalSum = product.is_bundle 
       ? (product as any).product_bundles?.reduce((sum: number, pb: any) => sum + ((pb.products?.price || 0) * pb.quantity), 0)
       : 0;

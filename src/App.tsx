@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/layout/Navbar';
 import CartDrawer from './components/menu/CartDrawer';
@@ -13,8 +14,19 @@ import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import { FeedbackProvider } from './context/FeedbackContext';
 import './App.css';
+import ulunLogoSvg from './assets/ulunLogo.svg';
 
 function App() {
+
+  useEffect(() => {
+    const favicon = document.querySelector<HTMLLinkElement>("link[rel='icon']") || document.createElement('link');
+    favicon.rel = 'icon';
+    favicon.type = 'image/svg+xml';
+    favicon.href = ulunLogoSvg;
+    if (!favicon.parentNode) {
+      document.head.appendChild(favicon);
+    }
+  }, []);
   return (
     <AuthProvider>
       <FeedbackProvider>

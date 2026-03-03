@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Settings, Circle, CheckSquare } from 'lucide-react';
+import { X, Plus, Trash2, Settings, Circle, CheckSquare, Copy } from 'lucide-react';
 import type { Product } from '../../types';
 import { useFeedback } from '../../context/FeedbackContext';
 
@@ -21,24 +21,48 @@ interface ModifierModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product;
+  availableProducts: Product[];
   onSave: (productId: number, modifiers: ProductModifier[]) => Promise<void>;
 }
 
-export default function ModifierModal({ isOpen, onClose, product, onSave }: ModifierModalProps) {
+const generateId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+const cloneModifierWithNewIds = (modifier: ProductModifier): ProductModifier => ({
+  ...modifier,
+  id: generateId(),
+  options: (modifier.options || []).map((option) => ({
+    ...option,
+    id: generateId()
+  }))
+});
+
+const cloneModifierListWithNewIds = (modifiers: ProductModifier[]): ProductModifier[] => {
+  return (modifiers || []).map(cloneModifierWithNewIds);
+};
+
+export default function ModifierModal({ isOpen, onClose, product, availableProducts, onSave }: ModifierModalProps) {
   const [modifiersList, setModifiersList] = useState<ProductModifier[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [templateProductId, setTemplateProductId] = useState<string>('');
   const { showToast } = useFeedback();
+
+  const productsWithModifiers = availableProducts.filter((item) => {
+    if (item.id === product.id) return false;
+    const modifiers = (item as any).modifiers;
+    return Array.isArray(modifiers) && modifiers.length > 0;
+  });
 
   // Load initial modifiers when modal opens
   useEffect(() => {
     if (isOpen && product) {
       setModifiersList((product as any).modifiers || []);
+      setTemplateProductId('');
     }
   }, [isOpen, product]);
 
   const addModifierCategory = () => {
     const newCategory: ProductModifier = {
-      id: Date.now().toString(),
+      id: generateId(),
       name: 'New Category (e.g. Sugar)',
       isRequired: true,
       type: 'single',
@@ -56,7 +80,7 @@ export default function ModifierModal({ isOpen, onClose, product, onSave }: Modi
       if (m.id === categoryId) {
         return {
           ...m,
-          options: [...m.options, { id: Date.now().toString(), name: 'Option Name', price: 0 }]
+          options: [...m.options, { id: generateId(), name: 'Option Name', price: 0 }]
         };
       }
       return m;
@@ -86,6 +110,28 @@ export default function ModifierModal({ isOpen, onClose, product, onSave }: Modi
     setModifiersList(modifiersList.filter(m => m.id !== categoryId));
   };
 
+  const copyFromProductTemplate = () => {
+    if (!templateProductId) {
+      showToast('Select a product template first.', 'error');
+      return;
+    }
+
+    const templateProduct = productsWithModifiers.find((item) => String(item.id) === templateProductId);
+    if (!templateProduct) {
+      showToast('Selected template product was not found.', 'error');
+      return;
+    }
+
+    const sourceModifiers = (templateProduct as any).modifiers as ProductModifier[];
+    if (!sourceModifiers || sourceModifiers.length === 0) {
+      showToast('This product has no add-ons to copy.', 'error');
+      return;
+    }
+
+    setModifiersList(cloneModifierListWithNewIds(sourceModifiers));
+    showToast(`Copied add-ons from ${templateProduct.name}.`, 'success');
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -93,7 +139,7 @@ export default function ModifierModal({ isOpen, onClose, product, onSave }: Modi
         onClose();
     } catch (error) {
         console.error(error);
-        showToast("Failed to save modifiers", "error");
+        showToast('Failed to save modifiers', 'error');
     } finally {
         setIsSaving(false);
     }
@@ -121,6 +167,31 @@ export default function ModifierModal({ isOpen, onClose, product, onSave }: Modi
 
         {/* Modal Content (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+            <p className="text-xs uppercase tracking-wider text-gray-500 font-bold mb-2">Quick copy from existing product</p>
+            <div className="flex flex-col md:flex-row gap-2">
+              <select
+                value={templateProductId}
+                onChange={(e) => setTemplateProductId(e.target.value)}
+                className="admin-input flex-1"
+              >
+                <option value="">Select product template...</option>
+                {productsWithModifiers.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={copyFromProductTemplate}
+                type="button"
+                className="px-4 py-2 rounded-lg bg-[#C5A572]/20 text-[#C5A572] hover:bg-[#C5A572]/30 transition-colors text-sm font-bold flex items-center gap-2 justify-center"
+              >
+                <Copy size={14} /> Use Template
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">This will replace current add-ons in this editor with the selected product’s add-ons.</p>
+          </div>
           
           {modifiersList.length === 0 ? (
             <div className="text-center py-10 border-2 border-dashed border-white/10 rounded-xl">
@@ -193,7 +264,7 @@ export default function ModifierModal({ isOpen, onClose, product, onSave }: Modi
                         <input 
                           type="number"
                           value={option.price}
-                          onChange={(e) => updateOption(category.id, option.id, 'price', parseInt(e.target.value))}
+                          onChange={(e) => updateOption(category.id, option.id, 'price', parseInt(e.target.value) || 0)}
                           className="w-20 bg-transparent border-b border-transparent group-hover:border-white/20 focus:border-[#C5A572] outline-none text-sm text-[#C5A572] text-right py-1 transition-colors"
                         />
                       </div>
