@@ -286,6 +286,9 @@ export default function Checkout() {
       if (itemsError) throw itemsError;
 
       const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-midtrans-transaction', {
+        headers: {
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
         body: {
           order_id: customOrderId,
           gross_amount: finalTotal,
@@ -302,22 +305,29 @@ export default function Checkout() {
 
       window.snap.pay(edgeData.token, {
         onSuccess: async (_result: any) => {
+          // Update order to paid
           await supabase.from('orders').update({ status: 'paid' }).eq('id', customOrderId);
           showToast('Payment successful!', 'success');
           clearCart();
           navigate('/menu');
         },
         onPending: (_result: any) => {
+          // Payment is pending (e.g. they chose Bank Transfer but haven't paid yet)
+          // Webhook will handle updating this to 'paid' later or 'cancelled' if it expires
           showToast('Waiting for your payment!', 'info');
           clearCart();
           navigate('/menu');
         },
-        onError: (_result: any) => {
-          showToast('Payment failed!', 'error');
+        onError: async (_result: any) => {
+          // Update order to cancelled on error
+          await supabase.from('orders').update({ status: 'cancelled' }).eq('id', customOrderId);
+          showToast('Payment failed! Order cancelled.', 'error');
           setIsSubmitting(false);
         },
-        onClose: () => {
-          showToast('You closed the popup without finishing the payment.', 'error');
+        onClose: async () => {
+          // Update order to cancelled if user closes the popup
+          await supabase.from('orders').update({ status: 'cancelled' }).eq('id', customOrderId);
+          showToast('You closed the popup without finishing the payment. Order cancelled.', 'error');
           setIsSubmitting(false);
         },
       });
