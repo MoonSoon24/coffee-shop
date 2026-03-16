@@ -132,10 +132,7 @@ export default function OrderDetail() {
       return;
     }
 
-    if (data.user_id && data.user_id !== user?.id) {
-      setRecoveryError('This order belongs to another account.');
-      return;
-    }
+
 
     if (!data.user_id) {
       saveGuestOrderAccess(data.id, data.customer_phone || '');

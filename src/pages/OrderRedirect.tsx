@@ -1,5 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
+import { saveGuestOrderAccess } from '../utils/orderAccess';
 
 const extractOrderIdFromHash = (hash: string) => {
   if (!hash) return '';
@@ -25,7 +27,27 @@ export default function OrderRedirect() {
 
   useEffect(() => {
     if (!orderId) return;
-    navigate(`/orders/${orderId}`, { replace: true });
+    const continueToOrderDetail = async () => {
+      const parsedOrderId = Number(orderId);
+      if (!parsedOrderId) {
+        navigate('/menu', { replace: true });
+        return;
+      }
+
+      const { data } = await supabase
+        .from('orders')
+        .select('id, user_id, customer_phone')
+        .eq('id', parsedOrderId)
+        .maybeSingle();
+
+      if (data && !data.user_id) {
+        saveGuestOrderAccess(data.id, data.customer_phone || '');
+      }
+
+      navigate(`/orders/${parsedOrderId}`, { replace: true });
+    };
+
+    continueToOrderDetail();
   }, [navigate, orderId]);
 
   return (

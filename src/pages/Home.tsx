@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -7,9 +7,12 @@ import {
   ChevronRight,
   Clock,
   Coffee,
+  Search,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
+import { normalizeOrderPhone, saveGuestOrderAccess } from '../utils/orderAccess';
 
 type WeeklyHighlight = {
   id: number;
@@ -26,6 +29,11 @@ export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [weeklyHighlights, setWeeklyHighlights] = useState<WeeklyHighlight[]>([]);
+  const [isCheckOrderOpen, setIsCheckOrderOpen] = useState(false);
+  const [checkOrderId, setCheckOrderId] = useState('');
+  const [checkPhone, setCheckPhone] = useState('');
+  const [checkOrderError, setCheckOrderError] = useState('');
+  const [isCheckingOrder, setIsCheckingOrder] = useState(false);
 
   useEffect(() => {
     const elements = document.querySelectorAll('.reveal-on-scroll');
@@ -108,6 +116,43 @@ export default function Home() {
   }, []);
 
   const displayedHighlights = weeklyHighlights;
+  const handleCheckOrder = async (event: FormEvent) => {
+    event.preventDefault();
+    setCheckOrderError('');
+
+    const parsedOrderId = Number(checkOrderId);
+    const normalizedPhone = normalizeOrderPhone(checkPhone);
+
+    if (!parsedOrderId || !normalizedPhone) {
+      setCheckOrderError('Please enter a valid order ID and phone number.');
+      return;
+    }
+
+    setIsCheckingOrder(true);
+    const { data, error } = await supabase
+      .from('orders')
+      .select('id, customer_phone, user_id')
+      .eq('id', parsedOrderId)
+      .maybeSingle();
+    setIsCheckingOrder(false);
+
+    if (error || !data) {
+      setCheckOrderError('Order was not found. Please check your order ID and phone number.');
+      return;
+    }
+
+    if (normalizeOrderPhone(data.customer_phone || '') !== normalizedPhone) {
+      setCheckOrderError('Order ID and phone number do not match.');
+      return;
+    }
+
+    if (!data.user_id) {
+      saveGuestOrderAccess(data.id, data.customer_phone || '');
+    }
+
+    setIsCheckOrderOpen(false);
+    navigate(`/orders/${data.id}`);
+  };
 
   return (
     <div className="min-h-screen bg-[#f6f7fb] text-slate-900 overflow-x-hidden">
@@ -138,14 +183,28 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col gap-4 animate-fade-in-up delay-300 items-center">
-            <button
-              onClick={() => navigate('/menu')}
-              className="group relative px-8 py-4 rounded-full border border-slate-300 transition-all hover:border-[#C5A572] hover:bg-[#C5A572]/10 bg-white/80 backdrop-blur-md shadow-sm"
-            >
-              <span className="relative flex items-center justify-center gap-3 text-slate-900 uppercase tracking-widest text-xs md:text-sm group-hover:text-[#9c7a4c] transition-colors">
-                Order Now <ArrowRight size={16} />
-              </span>
-            </button>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <button
+                onClick={() => navigate('/menu')}
+                className="group relative px-8 py-4 rounded-full border border-slate-300 transition-all hover:border-[#C5A572] hover:bg-[#C5A572]/10 bg-white/80 backdrop-blur-md shadow-sm"
+              >
+                <span className="relative flex items-center justify-center gap-3 text-slate-900 uppercase tracking-widest text-xs md:text-sm group-hover:text-[#9c7a4c] transition-colors">
+                  Order Now <ArrowRight size={16} />
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setCheckOrderError('');
+                  setIsCheckOrderOpen(true);
+                }}
+                className="group relative px-8 py-4 rounded-full border border-slate-300 transition-all hover:border-[#C5A572] hover:bg-[#C5A572]/10 bg-white/80 backdrop-blur-md shadow-sm"
+              >
+                <span className="relative flex items-center justify-center gap-3 text-slate-900 uppercase tracking-widest text-xs md:text-sm group-hover:text-[#9c7a4c] transition-colors">
+                  Check Order <Search size={16} />
+                </span>
+              </button>
+            </div>
 
             {!user && (
               <button
@@ -377,6 +436,45 @@ export default function Home() {
           </div>
         </div>
       </footer>
+      {isCheckOrderOpen && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/55 force-dark-overlay backdrop-blur-sm" onClick={() => setIsCheckOrderOpen(false)} />
+          <div className="relative w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-2xl p-5 md:p-6">
+            <button
+              onClick={() => setIsCheckOrderOpen(false)}
+              className="absolute top-3 right-3 rounded-full p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+            >
+              <X size={16} />
+            </button>
+
+            <h3 className="font-serif text-2xl text-slate-900 mb-1">Check your order</h3>
+            <p className="text-sm text-slate-500 mb-4">Enter your order ID and phone number to open the order detail page.</p>
+
+            <form onSubmit={handleCheckOrder} className="space-y-3">
+              <input
+                value={checkOrderId}
+                onChange={(e) => setCheckOrderId(e.target.value)}
+                placeholder="Order ID"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5"
+              />
+              <input
+                value={checkPhone}
+                onChange={(e) => setCheckPhone(e.target.value)}
+                placeholder="Phone number"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5"
+              />
+              {checkOrderError && <p className="text-xs text-rose-500">{checkOrderError}</p>}
+              <button
+                type="submit"
+                disabled={isCheckingOrder}
+                className="w-full rounded-xl bg-[#C5A572] text-black font-semibold py-2.5 hover:bg-[#b18f60]"
+              >
+                {isCheckingOrder ? 'Checking...' : 'Open Order Detail'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
