@@ -273,6 +273,13 @@ export default function Checkout() {
 
       if (orderError) throw orderError;
 
+      // ==========================================
+      // BUG FIX: Save Guest Access BEFORE Midtrans
+      // ==========================================
+      if (!user) {
+        saveGuestOrderAccess(customOrderId, customerPhone);
+      }
+
       const orderId = customOrderId;
       const orderItemsData = cart.map((item) => ({
         order_id: orderId,
@@ -308,17 +315,11 @@ export default function Checkout() {
         onSuccess: async (_result: any) => {
           // Update order to paid
           await supabase.from('orders').update({ status: 'paid' }).eq('id', customOrderId);
-          if (!user) {
-            saveGuestOrderAccess(customOrderId, customerPhone);
-          }
           showToast('Payment successful!', 'success');
           clearCart();
           navigate(`/orders/${customOrderId}`);
         },
         onPending: (_result: any) => {
-          if (!user) {
-            saveGuestOrderAccess(customOrderId, customerPhone);
-          }
           showToast('Waiting for your payment!', 'info');
           clearCart();
           navigate(`/orders/${customOrderId}`);
