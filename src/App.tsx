@@ -10,6 +10,8 @@ import Admin from './pages/Admin';
 import Reservation from './pages/Reservation';
 import Checkout from './pages/Checkout';
 import EmailConfirmed from './pages/EmailConfirmed';
+import OrderDetail from './pages/OrderDetail';
+import OrderRedirect from './pages/OrderRedirect';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import { FeedbackProvider } from './context/FeedbackContext';
@@ -44,6 +46,8 @@ function App() {
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/reservation" element={<Reservation />} />
                 <Route path="/checkout" element={<Checkout />} />
+                <Route path="/orders/:orderId" element={<OrderDetail />} />
+                <Route path="/orders" element={<OrderRedirect />} />
                 <Route path="/email-confirmed" element={<EmailConfirmed />} />
               </Routes>
             </div>

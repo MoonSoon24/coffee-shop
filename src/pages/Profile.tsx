@@ -12,7 +12,6 @@ import {
   TrendingUp,
   Wallet,
 } from 'lucide-react';
-import OrderDetailModal from '../components/common/OrderDetailModal';
 import PageSkeleton from '../components/common/PageSkeleton';
 import { useCart } from '../context/CartContext';
 import { useFeedback } from '../context/FeedbackContext';
@@ -37,7 +36,7 @@ export default function Profile() {
   const [searchOrder, setSearchOrder] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState<SortType>('newest');
-  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -239,7 +238,6 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-[#f6f7fb] pt-24 px-4 md:px-6 pb-12 text-slate-900">
-      <OrderDetailModal isOpen={!!selectedOrder} onClose={() => setSelectedOrder(null)} order={selectedOrder} />
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-4 mb-8 border-b border-slate-200 pb-6">
           <div>
@@ -361,7 +359,7 @@ export default function Profile() {
                 return (
                   <div
                     key={order.id}
-                    onClick={() => setSelectedOrder(order)}
+                    onClick={() => navigate(`/orders/${order.id}`)}
                     className="w-full text-left bg-white border border-slate-200 rounded-xl p-4 md:p-5 hover:border-slate-300 transition-colors shadow-sm"
                   >
                     <div className="flex flex-wrap justify-between items-start gap-2 mb-4">
@@ -384,7 +382,7 @@ export default function Profile() {
                     </div>
                   <div className="flex gap-2">
                       <button
-                        onClick={() => setSelectedOrder(order)}
+                        onClick={() => navigate(`/orders/${order.id}`)}
                         className="px-3 py-2 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
                       >
                         View details

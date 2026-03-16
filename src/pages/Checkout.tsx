@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { saveGuestOrderAccess } from '../utils/orderAccess';
 import { ArrowLeft, Coins, LocateFixed, MapPin, Tag } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -307,16 +308,20 @@ export default function Checkout() {
         onSuccess: async (_result: any) => {
           // Update order to paid
           await supabase.from('orders').update({ status: 'paid' }).eq('id', customOrderId);
+          if (!user) {
+            saveGuestOrderAccess(customOrderId, customerPhone);
+          }
           showToast('Payment successful!', 'success');
           clearCart();
-          navigate('/menu');
+          navigate(`/orders/${customOrderId}`);
         },
         onPending: (_result: any) => {
-          // Payment is pending (e.g. they chose Bank Transfer but haven't paid yet)
-          // Webhook will handle updating this to 'paid' later or 'cancelled' if it expires
+          if (!user) {
+            saveGuestOrderAccess(customOrderId, customerPhone);
+          }
           showToast('Waiting for your payment!', 'info');
           clearCart();
-          navigate('/menu');
+          navigate(`/orders/${customOrderId}`);
         },
         onError: async (_result: any) => {
           // Update order to cancelled on error
