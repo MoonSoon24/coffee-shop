@@ -1,32 +1,44 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
+import { saveGuestOrderAccess } from '../utils/orderAccess';
 
 export default function OrderRedirect() {
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    // Midtrans appends order_id to the query string
-    const orderIdParam = searchParams.get('order_id') || searchParams.get('orderId');
+    const resolveOrderRedirect = async () => {
+      const searchParams = new URLSearchParams(location.search);
+      // Midtrans appends order_id to the query string
+      const orderIdParam = searchParams.get('order_id') || searchParams.get('orderId');
 
-    if (orderIdParam) {
-      // Pro-tip: Split by '-' in case you later append timestamps to Midtrans IDs (explained below)
-      const cleanOrderId = orderIdParam.split('-')[0];
-      const parsedOrderId = Number(cleanOrderId);
+      if (orderIdParam) {
+        // Pro-tip: Split by '-' in case you later append timestamps to Midtrans IDs (explained below)
+        const cleanOrderId = orderIdParam.split('-')[0];
+        const parsedOrderId = Number(cleanOrderId);
 
-      if (parsedOrderId) {
-        navigate(`/orders/${parsedOrderId}`, { replace: true });
-        return;
+        if (parsedOrderId) {
+          const { data } = await supabase
+            .from('orders')
+            .select('id, customer_phone')
+            .eq('id', parsedOrderId)
+            .maybeSingle();
+
+          if (data?.customer_phone) {
+            saveGuestOrderAccess(data.id, data.customer_phone);
+          }
+
+          navigate(`/orders/${parsedOrderId}`, { replace: true });
+          return;
+        }
       }
-    }
 
-    // Fallback if URL is invalid
-    const timeout = setTimeout(() => {
+      // Fallback if URL is invalid
       navigate('/menu', { replace: true });
-    }, 3000);
+    };
 
-    return () => clearTimeout(timeout);
+    resolveOrderRedirect();
   }, [location, navigate]);
 
   return (
