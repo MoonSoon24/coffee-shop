@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
-import { saveGuestOrderAccess } from '../utils/orderAccess';
 
 export default function OrderRedirect() {
   const location = useLocation();
@@ -19,16 +17,6 @@ export default function OrderRedirect() {
         const parsedOrderId = Number(cleanOrderId);
 
         if (parsedOrderId) {
-          const { data } = await supabase
-            .from('orders')
-            .select('id, customer_phone')
-            .eq('id', parsedOrderId)
-            .maybeSingle();
-
-          if (data?.customer_phone) {
-            saveGuestOrderAccess(data.id, data.customer_phone);
-          }
-
           navigate(`/orders/${parsedOrderId}`, { replace: true });
           return;
         }

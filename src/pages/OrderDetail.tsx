@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CircleDollarSign, ReceiptText, ShieldAlert } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { hasGuestOrderAccess, normalizeOrderPhone, saveGuestOrderAccess } from '../utils/orderAccess';
+import { getGuestOrderAccessPhone, hasGuestOrderAccess, normalizeOrderPhone, saveGuestOrderAccess } from '../utils/orderAccess';
 
 type AccessState = 'checking' | 'granted' | 'needs_recovery' | 'not_found';
 
@@ -48,11 +48,18 @@ export default function OrderDetail() {
 
     const fetchOrder = async () => {
       setAccessState('checking');
-      const { data, error } = await supabase
+      const savedGuestPhone = getGuestOrderAccessPhone(parsedOrderId);
+
+      let query = supabase
         .from('orders')
         .select('*, order_items(*, products(*))')
-        .eq('id', parsedOrderId)
-        .maybeSingle();
+        .eq('id', parsedOrderId);
+
+      if (!user?.id && savedGuestPhone) {
+        query = query.eq('customer_phone', savedGuestPhone);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error || !data) {
         setOrder(null);
@@ -67,6 +74,10 @@ export default function OrderDetail() {
         return;
       }
 
+      if (!data.user_id && savedGuestPhone && normalizeOrderPhone(data.customer_phone || '') === savedGuestPhone) {
+        setAccessState('granted');
+        return;
+      }
       if (hasGuestOrderAccess(data.id, data.customer_phone || '')) {
         setAccessState('granted');
         return;

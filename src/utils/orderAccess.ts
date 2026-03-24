@@ -34,6 +34,13 @@ const writeEntries = (entries: GuestOrderAccessEntry[]) => {
   window.localStorage.setItem(GUEST_ORDER_ACCESS_KEY, JSON.stringify(entries));
 };
 
+export const getGuestOrderAccessPhone = (orderId: number) => {
+  if (!orderId) return null;
+
+  const entry = readEntries().find((item) => item.orderId === orderId);
+  return entry?.phone || null;
+};
+
 export const saveGuestOrderAccess = (orderId: number, phone: string) => {
   if (!orderId || !phone) return;
 
