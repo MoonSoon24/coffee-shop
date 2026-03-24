@@ -67,13 +67,13 @@ export default function OrderDetail() {
         return;
       }
 
-      if (data.user_id && user?.id !== data.user_id) {
-        setAccessState('needs_recovery');
+      if (hasGuestOrderAccess(data.id, data.customer_phone || '')) {
+        setAccessState('granted');
         return;
       }
 
-      if (hasGuestOrderAccess(data.id, data.customer_phone || '')) {
-        setAccessState('granted');
+      if (data.user_id && user?.id !== data.user_id) {
+        setAccessState('needs_recovery');
         return;
       }
 

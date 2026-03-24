@@ -64,11 +64,10 @@ export default function Checkout() {
   }, []);
   
   useEffect(() => {
-    if (cart.length === 0) {
-      navigate('/menu');
-      return;
+    if (cart.length === 0 && !isSubmitting) {
+      navigate('/menu', { replace: true });
     }
-  }, [cart.length, navigate]);
+  }, [cart.length, navigate, isSubmitting]);
 
   useEffect(() => {
     if (user?.email) {
@@ -80,7 +79,7 @@ export default function Checkout() {
 
   useEffect(() => {
     if (!user) {
-      setAvailablePoints(0);
+      setAvailablePoints(0);  
       return;
     }
 
@@ -248,8 +247,8 @@ export default function Checkout() {
 
     try {
       const customOrderId = generateOrderId();
-
       setIsSubmitting(true);
+
       const { error: orderError } = await supabase
         .from('orders')
         .insert([
@@ -273,12 +272,10 @@ export default function Checkout() {
 
       if (orderError) throw orderError;
 
-      // ==========================================
-      // BUG FIX: Save Guest Access BEFORE Midtrans
-      // ==========================================
-      if (!user) {
-        saveGuestOrderAccess(customOrderId, customerPhone);
-      }
+      // FIX 2: ALWAYS save local guest order access (even if user is logged in).
+      // This guarantees the user's browser instantly has access to view the order without 
+      // waiting for Supabase `user` context to rehydrate if Midtrans triggers a hard redirect.
+      saveGuestOrderAccess(customOrderId, customerPhone);
 
       const orderId = customOrderId;
       const orderItemsData = cart.map((item) => ({
@@ -313,25 +310,24 @@ export default function Checkout() {
 
       window.snap.pay(edgeData.token, {
         onSuccess: async (_result: any) => {
-          // Update order to paid
           await supabase.from('orders').update({ status: 'paid' }).eq('id', customOrderId);
           showToast('Payment successful!', 'success');
+          // Important: We clear the cart here, but it won't trigger the `/menu` bug
+          // because `isSubmitting` is still evaluated as `true` in our fix.
           clearCart();
-          navigate(`/orders/${customOrderId}`);
+          navigate(`/orders/${customOrderId}`, { replace: true });
         },
         onPending: (_result: any) => {
           showToast('Waiting for your payment!', 'info');
           clearCart();
-          navigate(`/orders/${customOrderId}`);
+          navigate(`/orders/${customOrderId}`, { replace: true });
         },
         onError: async (_result: any) => {
-          // Update order to cancelled on error
           await supabase.from('orders').update({ status: 'cancelled' }).eq('id', customOrderId);
           showToast('Payment failed! Order cancelled.', 'error');
           setIsSubmitting(false);
         },
         onClose: async () => {
-          // Update order to cancelled if user closes the popup
           await supabase.from('orders').update({ status: 'cancelled' }).eq('id', customOrderId);
           showToast('You closed the popup without finishing the payment. Order cancelled.', 'error');
           setIsSubmitting(false);

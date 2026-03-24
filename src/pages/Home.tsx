@@ -146,9 +146,7 @@ export default function Home() {
       return;
     }
 
-    if (!data.user_id) {
-      saveGuestOrderAccess(data.id, data.customer_phone || '');
-    }
+    saveGuestOrderAccess(data.id, data.customer_phone || '');
 
     setIsCheckOrderOpen(false);
     navigate(`/orders/${data.id}`);
