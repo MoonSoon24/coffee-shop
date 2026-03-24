@@ -7,7 +7,7 @@ import { getGuestOrderAccessPhone, hasGuestOrderAccess, normalizeOrderPhone, sav
 
 type AccessState = 'checking' | 'granted' | 'needs_recovery' | 'not_found';
 
-const renderModifierText = (item: any) => {
+const getModifierDetails = (item: any) => {
   const selected = item.modifiers || {};
   const groups = item.products?.modifiers || [];
 
@@ -16,12 +16,21 @@ const renderModifierText = (item: any) => {
       const group = groups.find((g: any) => g.id === groupId);
       if (!group) return null;
 
-      const labels = (selectedOptionIds as string[])
-        .map((optId) => group.options?.find((opt: any) => opt.id === optId)?.name)
-        .filter(Boolean);
+      const options = (selectedOptionIds as string[])
+        .map((optId) => group.options?.find((opt: any) => opt.id === optId))
+        .filter(Boolean)
+        .map((opt: any) => ({
+          name: opt.name,
+          price: Number(opt.price || 0),
+        }));
 
-      if (labels.length === 0) return null;
-      return `${group.name}: ${labels.join(', ')}`;
+      if (options.length === 0) return null;
+
+      return {
+        groupName: group.name,
+        options,
+        extra: options.reduce((sum: number, opt: { name: string; price: number }) => sum + opt.price, 0),
+      };
     })
     .filter(Boolean);
 };
@@ -43,6 +52,35 @@ export default function OrderDetail() {
 
   const isGuestOrder = !order?.user_id;
 
+  const loadOrderWithItems = async (id: number, guestPhone?: string | null) => {
+    let orderQuery = supabase
+      .from('orders')
+      .select('*')
+      .eq('id', id);
+
+    if (!user?.id && guestPhone) {
+      orderQuery = orderQuery.eq('customer_phone', guestPhone);
+    }
+
+    const { data: orderData, error: orderError } = await orderQuery.maybeSingle();
+    if (orderError || !orderData) {
+      return { data: null, error: orderError || new Error('Order not found') };
+    }
+
+    const { data: orderItems } = await supabase
+      .from('order_items')
+      .select('*, products(*)')
+      .eq('order_id', id);
+
+    return {
+      data: {
+        ...orderData,
+        order_items: orderItems || [],
+      },
+      error: null,
+    };
+  };
+
   useEffect(() => {
     if (isInvalidOrderId) return;
 
@@ -50,16 +88,7 @@ export default function OrderDetail() {
       setAccessState('checking');
       const savedGuestPhone = getGuestOrderAccessPhone(parsedOrderId);
 
-      let query = supabase
-        .from('orders')
-        .select('*, order_items(*, products(*))')
-        .eq('id', parsedOrderId);
-
-      if (!user?.id && savedGuestPhone) {
-        query = query.eq('customer_phone', savedGuestPhone);
-      }
-
-      const { data, error } = await query.maybeSingle();
+      const { data, error } = await loadOrderWithItems(parsedOrderId, savedGuestPhone);
 
       if (error || !data) {
         setOrder(null);
@@ -126,11 +155,7 @@ export default function OrderDetail() {
     }
 
     setRecovering(true);
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*, order_items(*, products(*))')
-      .eq('id', idToRecover)
-      .maybeSingle();
+    const { data, error } = await loadOrderWithItems(idToRecover);
     setRecovering(false);
 
     if (error || !data) {
@@ -245,19 +270,47 @@ export default function OrderDetail() {
             <p className="text-xs uppercase tracking-wider text-slate-500 mb-2 inline-flex items-center gap-1"><ReceiptText size={14} /> Items</p>
             <div className="space-y-2">
               {(order.order_items || []).map((item: any) => {
-                const modifiers = renderModifierText(item);
+                const modifierDetails = getModifierDetails(item);
+                const modifierExtra = modifierDetails.reduce((sum: number, group: any) => sum + Number(group.extra || 0), 0);
+                const unitPrice = Number(item.price_at_time || 0);
+                const basePrice = Math.max(0, unitPrice - modifierExtra);
                 return (
                   <div key={item.id} className="rounded-lg border border-slate-200 p-3 flex justify-between items-start gap-3">
                     <div>
                       <p className="font-medium text-slate-800">{item.products?.name || 'Item'}</p>
                       <p className="text-xs text-slate-500 mt-1">Quantity: {item.quantity}</p>
-                      {modifiers.length > 0 && modifiers.map((line, idx) => <p key={idx} className="text-[11px] text-slate-500">• {line}</p>)}
+                      <p className="text-[11px] text-slate-500 mt-1">Base: Rp {basePrice.toLocaleString()} / item</p>
+                      {modifierDetails.length > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                          {modifierDetails.map((group: any, idx: number) => (
+                            <div key={`${group.groupName}-${idx}`}>
+                              <p className="text-[11px] text-slate-500">
+                                • {group.groupName}: {group.options.map((opt: any) => opt.name).join(', ')}
+                                {group.extra > 0 ? ` (+Rp ${Number(group.extra).toLocaleString()})` : ''}
+                              </p>
+                              {group.options.map((opt: any, optionIdx: number) => (
+                                <p key={`${group.groupName}-${opt.name}-${optionIdx}`} className="text-[10px] text-slate-400 ml-3">
+                                  - {opt.name}{opt.price > 0 ? ` (+Rp ${Number(opt.price).toLocaleString()})` : ''}
+                                </p>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {item.notes && <p className="text-[11px] italic text-slate-500 mt-1">Note: {item.notes}</p>}
                     </div>
-                    <p className="text-sm text-slate-700 shrink-0">Rp {Number(item.price_at_time || 0).toLocaleString()}</p>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs text-slate-500">Unit</p>
+                      <p className="text-sm text-slate-700">Rp {unitPrice.toLocaleString()}</p>
+                      <p className="text-xs text-slate-500 mt-1">Subtotal</p>
+                      <p className="text-sm font-semibold text-slate-800">Rp {(unitPrice * Number(item.quantity || 0)).toLocaleString()}</p>
+                    </div>
                   </div>
                 );
               })}
+              {(order.order_items || []).length === 0 && (
+                <p className="text-sm text-slate-500">No items found for this order.</p>
+              )}
             </div>
           </div>
         </div>
