@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, unstable_usePrompt, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CircleDollarSign, Copy, ReceiptText, ShieldAlert } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -54,12 +54,6 @@ export default function OrderDetail() {
 
   const isGuestOrder = !order?.user_id;
   const shouldWarnGuestNavigation = accessState === 'granted' && isGuestOrder;
-
-  unstable_usePrompt({
-    when: shouldWarnGuestNavigation,
-    message:
-      'This is a guest order. If you leave this page, you must keep your order ID and phone number to access it again.',
-  });
 
   const loadOrderWithItems = async (id: number, guestPhone?: string | null) => {
     let orderQuery = supabase
@@ -144,6 +138,23 @@ export default function OrderDetail() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [shouldWarnGuestNavigation]);
 
+  useEffect(() => {
+    if (!shouldWarnGuestNavigation) return;
+
+    const onPopState = () => {
+      const shouldLeave = window.confirm(
+        'If you leave this guest order page, you will need your order ID and phone number to recover it. Continue?'
+      );
+
+      if (!shouldLeave) {
+        window.history.go(1);
+      }
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [shouldWarnGuestNavigation]);
+
   const handleCopyOrderId = async () => {
     if (!order?.id) return;
 
@@ -165,6 +176,20 @@ export default function OrderDetail() {
       showToast('Order ID copied.', 'success');
     } catch {
       showToast('Unable to copy order ID. Please copy manually.', 'error');
+    }
+  };
+
+  const handleBackNavigation = () => {
+    if (!shouldWarnGuestNavigation) {
+      navigate(user ? '/profile' : '/menu');
+      return;
+    }
+
+    const shouldLeave = window.confirm(
+      'If you leave this guest order page, you will need your order ID and phone number to recover it. Continue?'
+    );
+    if (shouldLeave) {
+      navigate(user ? '/profile' : '/menu');
     }
   };
 
@@ -264,7 +289,7 @@ export default function OrderDetail() {
   return (
     <div className="min-h-screen bg-[#f6f7fb] pt-24 px-4 pb-10">
       <div className="max-w-4xl mx-auto space-y-4">
-        <button onClick={() => navigate(user ? '/profile' : '/menu')} className="text-sm text-slate-500 hover:text-slate-800 inline-flex items-center gap-1">
+        <button onClick={handleBackNavigation} className="text-sm text-slate-500 hover:text-slate-800 inline-flex items-center gap-1">
           <ArrowLeft size={14} /> Back
         </button>
 
