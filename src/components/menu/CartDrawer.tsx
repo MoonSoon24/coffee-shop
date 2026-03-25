@@ -1,13 +1,39 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Minus, Plus, ArrowRight, Coffee } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
+import { useFeedback } from '../../context/FeedbackContext';
+import { checkOrderingAvailability } from '../../utils/orderAvailability';
 import ProductModal from '../menu/ProductModal';
 
 export default function CartDrawer() {
   const navigate = useNavigate();
   const { cart, addToCart, removeFromCart, cartTotal, isCartOpen, setIsCartOpen } = useCart();
+   const { showToast } = useFeedback();
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [isCheckingOrderAvailability, setIsCheckingOrderAvailability] = useState(false);
+  const [isOrderingUnavailable, setIsOrderingUnavailable] = useState(false);
+
+
+  useEffect(() => {
+    if (!isCartOpen) return;
+
+    let mounted = true;
+
+    const verifyOrderingAvailability = async () => {
+      setIsCheckingOrderAvailability(true);
+      const isAvailable = await checkOrderingAvailability();
+      if (!mounted) return;
+      setIsOrderingUnavailable(!isAvailable);
+      setIsCheckingOrderAvailability(false);
+    };
+
+    verifyOrderingAvailability();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isCartOpen]);
 
   const handleEditItem = (item: any) => {
     setEditingItem(item);
@@ -16,6 +42,12 @@ export default function CartDrawer() {
 
   const goToCheckout = () => {
     if (cart.length === 0) return;
+    if (isCheckingOrderAvailability) return;
+
+    if (isOrderingUnavailable) {
+      showToast('Sorry, Ulun currently can\'t take online orders.', 'error');
+      return;
+    }
     setIsCartOpen(false);
     navigate('/checkout');
   };
@@ -112,11 +144,28 @@ export default function CartDrawer() {
 
               <button
                 onClick={goToCheckout}
-                className="w-full font-bold font-serif py-4 rounded-lg uppercase tracking-widest transition-colors flex justify-center items-center gap-2 mb-1 bg-[#C5A572] text-black hover:bg-[#b09366] active:scale-95"
+                disabled={isCheckingOrderAvailability || isOrderingUnavailable}
+                className={`w-full font-bold font-serif py-4 rounded-lg uppercase tracking-widest transition-colors flex justify-center items-center gap-2 mb-1 ${
+                  isCheckingOrderAvailability || isOrderingUnavailable
+                    ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
+                    : 'bg-[#C5A572] text-black hover:bg-[#b09366] active:scale-95'
+                }`}
               >
-                <span>Checkout</span>
-                <ArrowRight size={18} />
+                <span>
+                  {isCheckingOrderAvailability
+                    ? 'Checking service...'
+                    : isOrderingUnavailable
+                      ? 'Online ordering unavailable'
+                      : 'Checkout'}
+                </span>
+                {!isCheckingOrderAvailability && !isOrderingUnavailable && <ArrowRight size={18} />}
               </button>
+
+              {isOrderingUnavailable && (
+                <p className="text-xs text-rose-300">
+                  Sorry, Ulun currently can\'t take online orders.
+                </p>
+              )}
             </div>
           )}
         </div>

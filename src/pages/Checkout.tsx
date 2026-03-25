@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
 import { useFeedback } from '../context/FeedbackContext';
+import { checkOrderingAvailability } from '../utils/orderAvailability';
 
 declare global {
   interface Window {
@@ -33,6 +34,8 @@ export default function Checkout() {
   const [orderNotes, setOrderNotes] = useState('');
   const [locationLoading, setLocationLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingOrderAvailability, setIsCheckingOrderAvailability] = useState(true);
+  const [isOrderingUnavailable, setIsOrderingUnavailable] = useState(false);
 
   const [promoCode, setPromoCode] = useState('');
   const [isCheckingPromo, setIsCheckingPromo] = useState(false);
@@ -68,6 +71,24 @@ export default function Checkout() {
       navigate('/menu', { replace: true });
     }
   }, [cart.length, navigate, isSubmitting]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const verifyOrderingAvailability = async () => {
+      setIsCheckingOrderAvailability(true);
+      const isAvailable = await checkOrderingAvailability();
+      if (!mounted) return;
+      setIsOrderingUnavailable(!isAvailable);
+      setIsCheckingOrderAvailability(false);
+    };
+
+    verifyOrderingAvailability();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (user?.email) {
@@ -231,7 +252,10 @@ export default function Checkout() {
   };
 
   const placeOrder = async () => {
-    if (isSubmitting) return;
+    if (isOrderingUnavailable) {
+      showToast('Sorry, Ulun currently can\'t take online orders.', 'error');
+      return;
+    }
     if (!customerName.trim()) {
       showToast('Please enter your name.', 'error');
       return;
@@ -462,8 +486,28 @@ export default function Checkout() {
             
           </div>
 
-          <button onClick={placeOrder} disabled={isSubmitting} className="w-full mt-5 rounded-xl bg-[#C5A572] text-black font-semibold py-3 hover:bg-[#b18f60]">
-            {isSubmitting ? 'Processing...' : 'Place Order'}
+          {isOrderingUnavailable && (
+            <p className="text-xs rounded-lg border border-rose-200 bg-rose-50 text-rose-700 px-3 py-2 mt-4">
+              Sorry, Ulun currently can\'t take online orders. Please try again in a few minutes.
+            </p>
+          )}
+
+          <button
+            onClick={placeOrder}
+            disabled={isSubmitting || isCheckingOrderAvailability || isOrderingUnavailable}
+            className={`w-full mt-5 rounded-xl font-semibold py-3 ${
+              isSubmitting || isCheckingOrderAvailability || isOrderingUnavailable
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                : 'bg-[#C5A572] text-black hover:bg-[#b18f60]'
+            }`}
+          >
+            {isSubmitting
+              ? 'Processing...'
+              : isCheckingOrderAvailability
+                ? 'Checking order service...'
+                : isOrderingUnavailable
+                  ? 'Online ordering unavailable'
+                  : 'Place Order'}
           </button>
         </div>
       </div>
