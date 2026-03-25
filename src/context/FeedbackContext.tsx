@@ -77,10 +77,10 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
             key={toast.id}
             className={`rounded-xl border px-4 py-3 text-sm shadow-xl backdrop-blur-md ${
               toast.type === 'success'
-                ? 'border-emerald-400/40 bg-emerald-500/20 text-emerald-100'
+                ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
                 : toast.type === 'error'
-                  ? 'border-red-400/40 bg-red-500/20 text-red-100'
-                  : 'border-slate-400/40 bg-slate-900/80 text-slate-100'
+                  ? 'border-red-300 bg-red-50 text-red-900'
+                  : 'border-slate-300 bg-white text-slate-900'
             }`}
           >
             <div className="flex items-start gap-2">

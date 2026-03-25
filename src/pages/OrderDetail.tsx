@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CircleDollarSign, ReceiptText, ShieldAlert } from 'lucide-react';
+import { Link, unstable_usePrompt, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, CircleDollarSign, Copy, ReceiptText, ShieldAlert } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import { useFeedback } from '../context/FeedbackContext';
 import { getGuestOrderAccessPhone, hasGuestOrderAccess, normalizeOrderPhone, saveGuestOrderAccess } from '../utils/orderAccess';
 
 type AccessState = 'checking' | 'granted' | 'needs_recovery' | 'not_found';
@@ -39,6 +40,7 @@ export default function OrderDetail() {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { showToast } = useFeedback();
 
   const parsedOrderId = Number(orderId || 0);
   const isInvalidOrderId = !parsedOrderId || Number.isNaN(parsedOrderId);
@@ -51,6 +53,13 @@ export default function OrderDetail() {
   const [recovering, setRecovering] = useState(false);
 
   const isGuestOrder = !order?.user_id;
+  const shouldWarnGuestNavigation = accessState === 'granted' && isGuestOrder;
+
+  unstable_usePrompt({
+    when: shouldWarnGuestNavigation,
+    message:
+      'This is a guest order. If you leave this page, you must keep your order ID and phone number to access it again.',
+  });
 
   const loadOrderWithItems = async (id: number, guestPhone?: string | null) => {
     let orderQuery = supabase
@@ -124,7 +133,7 @@ export default function OrderDetail() {
   }, [isInvalidOrderId, parsedOrderId, user?.id]);
 
   useEffect(() => {
-    if (accessState !== 'granted' || !isGuestOrder) return;
+    if (!shouldWarnGuestNavigation) return;
 
     const handler = (event: BeforeUnloadEvent) => {
       event.preventDefault();
@@ -133,7 +142,31 @@ export default function OrderDetail() {
 
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [accessState, isGuestOrder]);
+  }, [shouldWarnGuestNavigation]);
+
+  const handleCopyOrderId = async () => {
+    if (!order?.id) return;
+
+    const orderIdText = String(order.id);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(orderIdText);
+      } else {
+        const tempInput = document.createElement('textarea');
+        tempInput.value = orderIdText;
+        tempInput.style.position = 'fixed';
+        tempInput.style.opacity = '0';
+        document.body.appendChild(tempInput);
+        tempInput.focus();
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+      }
+      showToast('Order ID copied.', 'success');
+    } catch {
+      showToast('Unable to copy order ID. Please copy manually.', 'error');
+    }
+  };
 
   const statusTone = useMemo(() => {
     if (!order) return 'bg-slate-100 text-slate-700';
@@ -248,7 +281,17 @@ export default function OrderDetail() {
           <div className="flex flex-wrap justify-between items-start gap-3 mb-5">
             <div>
               <p className="text-xs uppercase tracking-widest text-[#C5A572]">Order detail</p>
-              <h1 className="font-serif text-2xl text-slate-900">Order #{order.id}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="font-serif text-2xl text-slate-900">Order #{order.id}</h1>
+                <button
+                  type="button"
+                  onClick={handleCopyOrderId}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <Copy size={13} />
+                  Copy
+                </button>
+              </div>
               <p className="text-xs text-slate-500 mt-1">{new Date(order.created_at).toLocaleString()}</p>
             </div>
             <span className={`text-[11px] px-2.5 py-1 rounded-full uppercase font-bold ${statusTone}`}>{order.status}</span>
