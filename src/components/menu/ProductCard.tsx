@@ -1,4 +1,5 @@
 import { Heart, Plus, Sparkles, Package, SlidersHorizontal } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 import type { Product } from '../../types';
 
 interface ProductCardProps {
@@ -27,6 +28,7 @@ export default function ProductCard({
 
   const hasDiscount = item.is_bundle && originalPrice > item.price;
   const hasModifiers = (item as any).modifiers && (item as any).modifiers.length > 0;
+  const { t } = useLanguage();
 
   return (
     <div
@@ -109,7 +111,7 @@ export default function ProductCard({
               border-[#C5A572]/40 bg-[#C5A572]/10 text-[#9c7a4c] group-hover:bg-[#C5A572] group-hover:text-black'
               }`}
           ><Plus size={14} />
-            Add
+            {t('menu_product_add')}
           </button>
         </div>
       </div>

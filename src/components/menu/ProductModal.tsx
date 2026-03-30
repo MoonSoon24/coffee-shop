@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Minus, Plus, Check, ShoppingBag, Package, Heart, Sparkles } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
+import { useLanguage } from '../../context/LanguageContext';
 import type { Product } from '../../types';
 
 interface ProductModalProps {
@@ -27,6 +28,8 @@ export default function ProductModal({
   const [totalPrice, setTotalPrice] = useState(0);
   const [notes, setNotes] = useState('');
   const { addToCart, removeFromCart } = useCart();
+  const { t } = useLanguage();
+
 
   const getModifierGroups = (value: unknown) => {
     if (!Array.isArray(value)) return [] as any[];
@@ -204,7 +207,7 @@ addToCart(finalItem, quantity);
             <div key={mod.id} className="space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">{mod.name}</h3>
-                {mod.isRequired && <span className="text-[10px] bg-[#C5A572]/20 text-black px-2 py-0.5 rounded border border-[#C5A572]/30">Required</span>}
+                {mod.isRequired && <span className="text-[10px] bg-[#C5A572]/20 text-black px-2 py-0.5 rounded border border-[#C5A572]/30">{t('product_modal_required')}</span>}
               </div>
 
               <div className="grid gap-2">
@@ -234,9 +237,9 @@ addToCart(finalItem, quantity);
 
           {/* Notes */}
           <div className="space-y-2">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Special Instructions</h3>
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">{t('menu_product_note')}</h3>
             <textarea 
-              placeholder="E.g. Extra hot, separate sauce..." 
+              placeholder={t('menu_product_note_ph')}
               value={notes}
               onChange={e => setNotes(e.target.value)}
               className="w-full bg-gray-100 border border-gray-200 rounded-lg p-3 text-sm text-black focus:outline-none focus:border-[#C5A572] min-h-[80px]"
@@ -266,7 +269,7 @@ addToCart(finalItem, quantity);
             }`}
           >
             <ShoppingBag size={18} />
-            {isValid ? 'Add to Cart' : 'Select Required Options'}
+            {isValid ? t('product_modal_add_to_cart') : t('product_modal_required_options')}
           </button>
         </div>
             </div>

@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CircleDollarSign, Copy, ReceiptText, ShieldAlert } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  CircleDollarSign, 
+  Copy, 
+  ReceiptText, 
+  ShieldAlert,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Coffee
+} from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useFeedback } from '../context/FeedbackContext';
 import { getGuestOrderAccessPhone, hasGuestOrderAccess, normalizeOrderPhone, saveGuestOrderAccess } from '../utils/orderAccess';
+import { useLanguage } from '../context/LanguageContext';
 
 type AccessState = 'checking' | 'granted' | 'needs_recovery' | 'not_found';
 
@@ -41,6 +52,7 @@ export default function OrderDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useFeedback();
+  const { t } = useLanguage();
 
   const parsedOrderId = Number(orderId || 0);
   const isInvalidOrderId = !parsedOrderId || Number.isNaN(parsedOrderId);
@@ -84,6 +96,7 @@ export default function OrderDetail() {
     };
   };
 
+  // 1. Initial Fetch
   useEffect(() => {
     if (isInvalidOrderId) return;
 
@@ -126,6 +139,37 @@ export default function OrderDetail() {
     fetchOrder();
   }, [isInvalidOrderId, parsedOrderId, user?.id]);
 
+  // 2. REALTIME SUBSCRIPTION
+  useEffect(() => {
+    if (!order?.id || accessState !== 'granted') return;
+
+    // Subscribe to changes specifically for this order ID
+    const channel = supabase
+      .channel(`public:orders:${order.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${order.id}`,
+        },
+        (payload) => {
+          // Merge the updated fields into our current order state
+          setOrder((currentOrder: any) => ({
+            ...currentOrder,
+            ...payload.new,
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [order?.id, accessState]);
+
+  // ... (Keep existing Guest Warning useEffects and handlers here)
   useEffect(() => {
     if (!shouldWarnGuestNavigation) return;
 
@@ -142,9 +186,7 @@ export default function OrderDetail() {
     if (!shouldWarnGuestNavigation) return;
 
     const onPopState = () => {
-      const shouldLeave = window.confirm(
-        'If you leave this guest order page, you will need your order ID and phone number to recover it. Continue?'
-      );
+      const shouldLeave = window.confirm(t('order_detail_leave_warning'));
 
       if (!shouldLeave) {
         window.history.go(1);
@@ -153,7 +195,7 @@ export default function OrderDetail() {
 
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, [shouldWarnGuestNavigation]);
+  }, [shouldWarnGuestNavigation, t]);
 
   const handleCopyOrderId = async () => {
     if (!order?.id) return;
@@ -173,9 +215,9 @@ export default function OrderDetail() {
         document.execCommand('copy');
         document.body.removeChild(tempInput);
       }
-      showToast('Order ID copied.', 'success');
+      showToast(t('order_detail_toast_copied'), 'success');
     } catch {
-      showToast('Unable to copy order ID. Please copy manually.', 'error');
+      showToast(t('order_detail_toast_copy_failed'), 'error');
     }
   };
 
@@ -185,20 +227,11 @@ export default function OrderDetail() {
       return;
     }
 
-    const shouldLeave = window.confirm(
-      'If you leave this guest order page, you will need your order ID and phone number to recover it. Continue?'
-    );
+    const shouldLeave = window.confirm(t('order_detail_leave_warning'));
     if (shouldLeave) {
       navigate(user ? '/profile' : '/menu');
     }
   };
-
-  const statusTone = useMemo(() => {
-    if (!order) return 'bg-slate-100 text-slate-700';
-    if (order.status === 'completed' || order.status === 'paid') return 'bg-emerald-100 text-emerald-700';
-    if (order.status === 'cancelled') return 'bg-rose-100 text-rose-700';
-    return 'bg-amber-100 text-amber-700';
-  }, [order]);
 
   const handleRecover = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,7 +241,7 @@ export default function OrderDetail() {
     const normalizedPhone = normalizeOrderPhone(phoneInput);
 
     if (!idToRecover || !normalizedPhone) {
-      setRecoveryError('Please enter valid order ID and phone number.');
+      setRecoveryError(t('order_detail_err_invalid_input'));
       return;
     }
 
@@ -217,16 +250,14 @@ export default function OrderDetail() {
     setRecovering(false);
 
     if (error || !data) {
-      setRecoveryError('Order not found. Please recheck your input.');
+      setRecoveryError(t('order_detail_err_not_found'));
       return;
     }
 
     if (normalizeOrderPhone(data.customer_phone || '') !== normalizedPhone) {
-      setRecoveryError('Order ID and phone number do not match.');
+      setRecoveryError(t('order_detail_err_mismatch'));
       return;
     }
-
-
 
     if (!data.user_id) {
       saveGuestOrderAccess(data.id, data.customer_phone || '');
@@ -240,45 +271,75 @@ export default function OrderDetail() {
     }
   };
 
+  // 3. UI Status Configuration
+  // 3. UI Status Configuration
+  const statusConfig = useMemo(() => {
+    if (!order) return { color: 'bg-slate-100 text-slate-700 border-slate-200', icon: Clock, label: t('order_detail_loading') || 'Loading...' };
+    
+    const status = order.status?.toLowerCase();
+    switch(status) {
+      case 'completed':
+        return { color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2, label: t('order_status_completed') };
+      case 'active':
+      case 'processing':
+        // Purple/Indigo color to show it is currently being worked on
+        return { color: 'bg-indigo-50 text-indigo-700 border-indigo-200', icon: Coffee, label: status === 'active' ? t('order_status_active') : t('order_status_processing') };
+      case 'paid':
+        // Blue color to show payment is confirmed but maybe not started making yet
+        return { color: 'bg-blue-50 text-blue-700 border-blue-200', icon: CircleDollarSign, label: t('order_status_paid') };
+      case 'cancelled':
+        return { color: 'bg-rose-50 text-rose-700 border-rose-200', icon: XCircle, label: t('order_status_cancelled') };
+      case 'pending':
+      default:
+        // Yellow/Amber for waiting on payment/confirmation
+        return { color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Clock, label: t('order_status_pending') };
+    }
+  }, [order, t]);
+
+
   if (accessState === 'checking') {
-    return <div className="min-h-screen pt-24 px-4">Loading order details...</div>;
+    return <div className="min-h-screen pt-24 px-4 flex items-center justify-center text-slate-500">{t('order_detail_loading')}</div>;
   }
 
   if (isInvalidOrderId || accessState === 'not_found') {
+    // ... (Keep existing Not Found UI)
     return (
       <div className="min-h-screen bg-[#f6f7fb] pt-24 px-4 pb-10">
-        <div className="max-w-2xl mx-auto bg-white border border-slate-200 rounded-2xl p-6 text-center">
-          <h1 className="font-serif text-2xl mb-2">Order not found</h1>
-          <p className="text-slate-500 text-sm mb-5">We could not find this order ID.</p>
-          <Link to="/" className="rounded-xl bg-[#C5A572] px-4 py-2 inline-block font-semibold text-black">Back to home</Link>
+        <div className="max-w-xl mx-auto bg-white border border-slate-200 rounded-3xl p-8 text-center shadow-sm">
+          <h1 className="font-serif text-3xl text-slate-900 mb-3">{t('order_detail_not_found_title')}</h1>
+          <p className="text-slate-500 mb-8">{t('order_detail_not_found_desc')}</p>
+          <Link to="/" className="rounded-full bg-[#C5A572] px-6 py-3 inline-block font-medium text-black hover:bg-[#b18f60] transition-colors">
+            {t('order_detail_back_home')}
+          </Link>
         </div>
       </div>
     );
   }
 
   if (accessState !== 'granted' || !order) {
+    // ... (Keep existing Recovery UI, maybe rounded-3xl)
     return (
       <div className="min-h-screen bg-[#f6f7fb] pt-24 px-4 pb-10">
-        <div className="max-w-2xl mx-auto bg-white border border-slate-200 rounded-2xl p-6">
-          <h1 className="font-serif text-2xl mb-2">Recover your order page</h1>
-          <p className="text-sm text-slate-500 mb-5">Enter your order ID and phone number to reopen your order details.</p>
+        <div className="max-w-xl mx-auto bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
+          <h1 className="font-serif text-3xl text-slate-900 mb-3">{t('order_detail_recover_title')}</h1>
+          <p className="text-slate-500 mb-8">{t('order_detail_recover_desc')}</p>
 
-          <form onSubmit={handleRecover} className="space-y-3">
+          <form onSubmit={handleRecover} className="space-y-4">
             <input
               value={recoveryOrderInput}
               onChange={(e) => setRecoveryOrderInput(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5"
-              placeholder="Order ID"
+              className="w-full rounded-2xl border border-slate-200 px-5 py-3.5 focus:border-[#C5A572] focus:ring-1 focus:ring-[#C5A572] outline-none transition-all"
+              placeholder={t('order_detail_order_id_placeholder')}
             />
             <input
               value={phoneInput}
               onChange={(e) => setPhoneInput(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5"
-              placeholder="Phone number"
+              className="w-full rounded-2xl border border-slate-200 px-5 py-3.5 focus:border-[#C5A572] focus:ring-1 focus:ring-[#C5A572] outline-none transition-all"
+              placeholder={t('order_detail_phone_placeholder')}
             />
-            {recoveryError && <p className="text-xs text-rose-500">{recoveryError}</p>}
-            <button disabled={recovering} className="rounded-xl bg-[#C5A572] px-4 py-2.5 font-semibold text-black">
-              {recovering ? 'Recovering...' : 'Recover order'}
+            {recoveryError && <p className="text-sm text-rose-500 px-2">{recoveryError}</p>}
+            <button disabled={recovering} className="w-full rounded-full bg-[#C5A572] px-6 py-3.5 font-medium text-black hover:bg-[#b18f60] transition-colors disabled:opacity-50">
+              {recovering ? t('order_detail_recovering') : t('order_detail_recover_btn')}
             </button>
           </form>
         </div>
@@ -286,99 +347,125 @@ export default function OrderDetail() {
     );
   }
 
+  const StatusIcon = statusConfig.icon;
+
   return (
-    <div className="min-h-screen bg-[#f6f7fb] pt-24 px-4 pb-10">
-      <div className="max-w-4xl mx-auto space-y-4">
-        <button onClick={handleBackNavigation} className="text-sm text-slate-500 hover:text-slate-800 inline-flex items-center gap-1">
-          <ArrowLeft size={14} /> Back
+    <div className="min-h-screen bg-[#f6f7fb] pt-24 px-4 pb-12">
+      <div className="max-w-3xl mx-auto space-y-6">
+        
+        <button onClick={handleBackNavigation} className="text-sm text-slate-500 hover:text-slate-900 inline-flex items-center gap-2 transition-colors">
+          <ArrowLeft size={16} /> {t('order_detail_back')}
         </button>
 
         {isGuestOrder && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 px-4 py-3 text-sm flex gap-2 items-start">
-            <ShieldAlert size={16} className="mt-0.5" />
-            <p>
-              This is a guest order page. Please keep this page URL and stay on this page if possible. If closed, you can recover it using order ID and phone number.
-            </p>
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 p-4 text-sm flex gap-3 items-start shadow-sm">
+            <ShieldAlert size={18} className="mt-0.5 shrink-0 text-amber-600" />
+            <p className="leading-relaxed">{t('order_detail_guest_warning')}</p>
           </div>
         )}
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6">
-          <div className="flex flex-wrap justify-between items-start gap-3 mb-5">
-            <div>
-              <p className="text-xs uppercase tracking-widest text-[#C5A572]">Order detail</p>
-              <div className="flex items-center gap-2">
-                <h1 className="font-serif text-2xl text-slate-900">Order #{order.id}</h1>
-                <button
-                  type="button"
-                  onClick={handleCopyOrderId}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                >
-                  <Copy size={13} />
-                  Copy
-                </button>
+        <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+          
+          {/* Highlighted Status Banner */}
+          <div className={`px-6 py-8 border-b ${statusConfig.color} flex flex-col items-center justify-center text-center transition-colors duration-500`}>
+            <StatusIcon size={40} className="mb-3 opacity-80" />
+            <p className="text-sm font-medium uppercase tracking-widest opacity-70 mb-1">{t('order_detail_status_label')}</p>
+            <h2 className="text-3xl font-serif">{statusConfig.label}</h2>
+          </div>
+
+          <div className="p-6 md:p-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <h1 className="font-serif text-2xl text-slate-900">{t('order_detail_order')} #{order.id}</h1>
+                  <button
+                    type="button"
+                    onClick={handleCopyOrderId}
+                    className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+                    title={t('order_detail_copy')}
+                  >
+                    <Copy size={16} />
+                  </button>
+                </div>
+                <p className="text-sm text-slate-500">{new Date(order.created_at).toLocaleString()}</p>
               </div>
-              <p className="text-xs text-slate-500 mt-1">{new Date(order.created_at).toLocaleString()}</p>
             </div>
-            <span className={`text-[11px] px-2.5 py-1 rounded-full uppercase font-bold ${statusTone}`}>{order.status}</span>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 text-sm">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs text-slate-500 mb-1">Customer</p>
-              <p className="font-medium text-slate-800">{order.customer_name || 'Guest customer'}</p>
-              <p className="text-xs text-slate-500">{order.customer_phone || '-'}</p>
+            {/* Customer & Total Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+              <div className="rounded-2xl bg-slate-50 p-5 border border-slate-100">
+                <p className="text-xs uppercase tracking-wider text-slate-400 mb-2">{t('order_detail_customer')}</p>
+                <p className="font-medium text-slate-900 text-lg mb-0.5">{order.customer_name || t('order_detail_guest_customer')}</p>
+                <p className="text-sm text-slate-500">{order.customer_phone || '-'}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 p-5 border border-slate-100 flex flex-col justify-center">
+                <p className="text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
+                  <CircleDollarSign size={14} /> {t('order_detail_total')}
+                </p>
+                <p className="font-serif text-3xl text-[#9c7a4c]">Rp {Number(order.total_price || 0).toLocaleString('id-ID')}</p>
+              </div>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs text-slate-500 mb-1 inline-flex items-center gap-1"><CircleDollarSign size={14} /> Total</p>
-              <p className="font-serif text-xl text-[#9c7a4c]">Rp {Number(order.total_price || 0).toLocaleString()}</p>
-            </div>
-          </div>
 
-          <div>
-            <p className="text-xs uppercase tracking-wider text-slate-500 mb-2 inline-flex items-center gap-1"><ReceiptText size={14} /> Items</p>
-            <div className="space-y-2">
-              {(order.order_items || []).map((item: any) => {
-                const modifierDetails = getModifierDetails(item);
-                const modifierExtra = modifierDetails.reduce((sum: number, group: any) => sum + Number(group.extra || 0), 0);
-                const unitPrice = Number(item.price_at_time || 0);
-                const basePrice = Math.max(0, unitPrice - modifierExtra);
-                return (
-                  <div key={item.id} className="rounded-lg border border-slate-200 p-3 flex justify-between items-start gap-3">
-                    <div>
-                      <p className="font-medium text-slate-800">{item.products?.name || 'Item'}</p>
-                      <p className="text-xs text-slate-500 mt-1">Quantity: {item.quantity}</p>
-                      <p className="text-[11px] text-slate-500 mt-1">Base: Rp {basePrice.toLocaleString()} / item</p>
-                      {modifierDetails.length > 0 && (
-                        <div className="mt-1 space-y-0.5">
-                          {modifierDetails.map((group: any, idx: number) => (
-                            <div key={`${group.groupName}-${idx}`}>
-                              <p className="text-[11px] text-slate-500">
-                                • {group.groupName}: {group.options.map((opt: any) => opt.name).join(', ')}
-                                {group.extra > 0 ? ` (+Rp ${Number(group.extra).toLocaleString()})` : ''}
-                              </p>
-                              {group.options.map((opt: any, optionIdx: number) => (
-                                <p key={`${group.groupName}-${opt.name}-${optionIdx}`} className="text-[10px] text-slate-400 ml-3">
-                                  - {opt.name}{opt.price > 0 ? ` (+Rp ${Number(opt.price).toLocaleString()})` : ''}
-                                </p>
-                              ))}
-                            </div>
-                          ))}
+            {/* Items List */}
+            <div>
+              <h3 className="text-sm font-medium uppercase tracking-wider text-slate-900 mb-4 flex items-center gap-2 border-b border-slate-100 pb-4">
+                <ReceiptText size={18} className="text-[#C5A572]" /> {t('order_detail_items')}
+              </h3>
+              
+              <div className="space-y-4">
+                {(order.order_items || []).map((item: any) => {
+                  const modifierDetails = getModifierDetails(item);
+                  const modifierExtra = modifierDetails.reduce((sum: number, group: any) => sum + Number(group.extra || 0), 0);
+                  const unitPrice = Number(item.price_at_time || 0);
+                  const basePrice = Math.max(0, unitPrice - modifierExtra);
+                  
+                  return (
+                    <div key={item.id} className="flex justify-between items-start gap-4 p-4 rounded-2xl border border-slate-100 bg-white hover:border-slate-200 transition-colors">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="w-6 h-6 rounded-md bg-slate-100 text-slate-600 text-xs font-medium flex items-center justify-center shrink-0">
+                            {item.quantity}x
+                          </span>
+                          <p className="font-medium text-slate-900 text-base">{item.products?.name || t('order_detail_fallback_item')}</p>
                         </div>
-                      )}
-                      {item.notes && <p className="text-[11px] italic text-slate-500 mt-1">Note: {item.notes}</p>}
+                        
+                        <p className="text-xs text-slate-500 mb-2 pl-8">{t('order_detail_base')}: Rp {basePrice.toLocaleString('id-ID')}</p>
+                        
+                        {modifierDetails.length > 0 && (
+                          <div className="pl-8 space-y-1.5 border-l-2 border-slate-100 ml-3">
+                            {modifierDetails.map((group: any, idx: number) => (
+                              <div key={`${group.groupName}-${idx}`}>
+                                <p className="text-xs text-slate-600 font-medium">
+                                  {group.groupName}
+                                </p>
+                                {group.options.map((opt: any, optionIdx: number) => (
+                                  <p key={`${group.groupName}-${opt.name}-${optionIdx}`} className="text-xs text-slate-500 mt-0.5 flex justify-between">
+                                    <span>- {opt.name}</span>
+                                    {opt.price > 0 && <span>+Rp {Number(opt.price).toLocaleString('id-ID')}</span>}
+                                  </p>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {item.notes && (
+                          <p className="text-xs italic text-slate-500 mt-3 pl-8 bg-slate-50 py-1.5 px-3 rounded-lg inline-block">
+                            "{item.notes}"
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0 pt-1">
+                        <p className="text-base font-semibold text-slate-900">
+                          Rp {(unitPrice * Number(item.quantity || 0)).toLocaleString('id-ID')}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-slate-500">Unit</p>
-                      <p className="text-sm text-slate-700">Rp {unitPrice.toLocaleString()}</p>
-                      <p className="text-xs text-slate-500 mt-1">Subtotal</p>
-                      <p className="text-sm font-semibold text-slate-800">Rp {(unitPrice * Number(item.quantity || 0)).toLocaleString()}</p>
-                    </div>
-                  </div>
-                );
-              })}
-              {(order.order_items || []).length === 0 && (
-                <p className="text-sm text-slate-500">No items found for this order.</p>
-              )}
+                  );
+                })}
+                {(order.order_items || []).length === 0 && (
+                  <p className="text-sm text-slate-500 text-center py-8">{t('order_detail_no_items')}</p>
+                )}
+              </div>
             </div>
           </div>
         </div>

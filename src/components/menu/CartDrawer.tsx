@@ -5,6 +5,7 @@ import { useCart } from '../../context/CartContext';
 import { useFeedback } from '../../context/FeedbackContext';
 import { checkOrderingAvailability } from '../../utils/orderAvailability';
 import ProductModal from '../menu/ProductModal';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function CartDrawer() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export default function CartDrawer() {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [isCheckingOrderAvailability, setIsCheckingOrderAvailability] = useState(false);
   const [isOrderingUnavailable, setIsOrderingUnavailable] = useState(false);
+  const { t } = useLanguage();
 
 
   useEffect(() => {
@@ -45,7 +47,7 @@ export default function CartDrawer() {
     if (isCheckingOrderAvailability) return;
 
     if (isOrderingUnavailable) {
-      showToast('Sorry, Ulun currently can\'t take online orders.', 'error');
+    showToast(t('common_ordering_unavailable'), 'error');
       return;
     }
     setIsCartOpen(false);
@@ -72,7 +74,7 @@ export default function CartDrawer() {
           }`}
         >
           <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#141414]">
-            <h2 className="text-xl font-serif text-white">Your Order</h2>
+            <h2 className="text-xl font-serif text-white">{t('cart_title')}</h2>
             <button onClick={() => setIsCartOpen(false)} className="p-2 -mr-2 text-gray-400 hover:text-white transition-colors">
               <X size={24} />
             </button>
@@ -82,7 +84,7 @@ export default function CartDrawer() {
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center opacity-20 text-white">
                 <Coffee size={48} />
-                <p className="mt-4 font-serif text-sm">Cart is empty</p>
+                <p className="mt-4 font-serif text-sm">{t('cart_empty')}</p>
               </div>
             ) : (
               cart.map((item) => (
@@ -109,7 +111,7 @@ export default function CartDrawer() {
                           </p>
                         );
                       })}
-                    {item.modifiers?.notes && <p className="text-[10px] text-gray-500 italic mt-1">Note: {item.modifiers.notes}</p>}
+                    {item.modifiers?.notes && <p className="text-[10px] text-gray-500 italic mt-1">{t('cart_note')}: {item.modifiers.notes}</p>}
                     <p className="text-[#C5A572] text-xs mt-0.5">Rp {(item.price * item.quantity).toLocaleString()}</p>
                     <div className="flex items-center gap-2 mt-2">
                       <button
@@ -126,7 +128,7 @@ export default function CartDrawer() {
                         <Plus size={12} />
                       </button>
                       <button onClick={() => handleEditItem(item)} className="text-[10px] text-[#C5A572] hover:underline mt-2">
-                        Edit
+                        {t('cart_edit')}
                       </button>
                     </div>
                   </div>
@@ -138,7 +140,7 @@ export default function CartDrawer() {
           {cart.length > 0 && (
             <div className="p-6 border-t border-white/5 bg-[#1a1a1a]">
               <div className="flex justify-between items-center pt-2 mb-4">
-                <span className="text-xs uppercase tracking-widest text-gray-500">Subtotal</span>
+                <span className="text-xs uppercase tracking-widest text-gray-500">{t('cart_subtotal')}</span>
                 <span className="text-xl font-serif text-[#C5A572]">Rp {cartTotal.toLocaleString()}</span>
               </div>
 
@@ -153,17 +155,17 @@ export default function CartDrawer() {
               >
                 <span>
                   {isCheckingOrderAvailability
-                    ? 'Checking service...'
+                    ? t('cart_checking_service')
                     : isOrderingUnavailable
-                      ? 'Online ordering unavailable'
-                      : 'Checkout'}
+                      ? t('cart_unavailable')
+                      : t('cart_checkout')}
                 </span>
                 {!isCheckingOrderAvailability && !isOrderingUnavailable && <ArrowRight size={18} />}
               </button>
 
               {isOrderingUnavailable && (
                 <p className="text-xs text-rose-300">
-                  Sorry, Ulun currently can\'t take online orders.
+                  {t('common_ordering_unavailable')}
                 </p>
               )}
             </div>

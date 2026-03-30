@@ -7,7 +7,6 @@ import Menu from './pages/Menu';
 import Auth from './pages/Auth';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
-import Reservation from './pages/Reservation';
 import Checkout from './pages/Checkout';
 import EmailConfirmed from './pages/EmailConfirmed';
 import OrderDetail from './pages/OrderDetail';
@@ -15,6 +14,7 @@ import OrderRedirect from './pages/OrderRedirect';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import { FeedbackProvider } from './context/FeedbackContext';
+import { LanguageProvider } from './context/LanguageContext';
 import './App.css';
 import ulunLogoSvg from './assets/ulunLogo.svg';
 
@@ -31,6 +31,7 @@ function App() {
   }, []);
   return (
     <AuthProvider>
+      <LanguageProvider>
       <FeedbackProvider>
         <CartProvider>
           <Router>
@@ -44,7 +45,6 @@ function App() {
                 <Route path="/login" element={<Auth />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/admin" element={<Admin />} />
-                <Route path="/reservation" element={<Reservation />} />
                 <Route path="/checkout" element={<Checkout />} />
                 <Route path="/orders/:orderId" element={<OrderDetail />} />
                 <Route path="/orders" element={<OrderRedirect />} />
@@ -54,6 +54,7 @@ function App() {
           </Router>
         </CartProvider>
       </FeedbackProvider>
+      </LanguageProvider>
     </AuthProvider>
   );
 }

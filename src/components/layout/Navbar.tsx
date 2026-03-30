@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { UlunLogo } from '../common/UlunLogo';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { useState, useEffect } from 'react';
 
 export default function Navbar() {
   const { cartCount, setIsCartOpen } = useCart();
   const { user, isAdmin } = useAuth();
+    const { language, setLanguage, t } = useLanguage();
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
 
@@ -26,11 +28,24 @@ export default function Navbar() {
         </button>
 
         <div className="flex items-center gap-3 md:gap-5 mr-auto ml-4 md:ml-6">
-          <button onClick={() => navigate('/menu')} className="text-[10px] md:text-xs uppercase tracking-[0.18em] md:tracking-[0.2em] text-white/80 hover:text-[#C5A572]">Menu</button>
-          <button onClick={() => navigate('/reservation')} className="text-[10px] md:text-xs uppercase tracking-[0.18em] md:tracking-[0.2em] text-white/80 hover:text-[#C5A572]">Reserve</button>
+          <button onClick={() => navigate('/menu')} className="text-[10px] md:text-xs uppercase tracking-[0.18em] md:tracking-[0.2em] text-white/80 hover:text-[#C5A572]">{t('nav_menu')}</button>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className="flex items-center rounded-full border border-white/20 bg-white/5 p-0.5">
+            <button
+              onClick={() => setLanguage('id')}
+              className={`px-2.5 py-1 text-[10px] md:text-xs rounded-full font-semibold transition-colors ${language === 'id' ? 'bg-[#C5A572] text-black' : 'text-white/80 hover:text-white'}`}
+            >
+              ID
+            </button>
+            <button
+              onClick={() => setLanguage('en')}
+              className={`px-2.5 py-1 text-[10px] md:text-xs rounded-full font-semibold transition-colors ${language === 'en' ? 'bg-[#C5A572] text-black' : 'text-white/80 hover:text-white'}`}
+            >
+              EN
+            </button>
+          </div>
           <button
             onClick={() => navigate(user ? (isAdmin ? '/admin' : '/profile') : '/login')}
             className="text-white hover:text-[#C5A572] transition-colors"

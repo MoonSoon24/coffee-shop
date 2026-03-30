@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
 import { useFeedback } from '../context/FeedbackContext';
 import { checkOrderingAvailability } from '../utils/orderAvailability';
+import { useLanguage } from '../context/LanguageContext';
 
 declare global {
   interface Window {
@@ -25,6 +26,7 @@ export default function Checkout() {
   const { cart, cartTotal, clearCart, cartCount } = useCart();
   const { user } = useAuth();
   const { showToast } = useFeedback();
+  const { t } = useLanguage();
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -206,7 +208,7 @@ export default function Checkout() {
       .single();
 
     if (error || !data) {
-      setPromoError('Invalid promotion code');
+      setPromoError(t('checkout_invalid_promo'));
       setIsCheckingPromo(false);
       return;
     }
@@ -232,7 +234,7 @@ export default function Checkout() {
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      showToast('Geolocation not supported.', 'error');
+    showToast(t('checkout_geo_not_supported'), 'error');
       return;
     }
     setLocationLoading(true);
@@ -253,19 +255,19 @@ export default function Checkout() {
 
   const placeOrder = async () => {
     if (isOrderingUnavailable) {
-      showToast('Sorry, Ulun currently can\'t take online orders.', 'error');
+      showToast(t('common_ordering_unavailable'), 'error');
       return;
     }
     if (!customerName.trim()) {
-      showToast('Please enter your name.', 'error');
+      showToast(t('checkout_enter_name'), 'error');
       return;
     }
     if (!customerPhone.trim()) {
-      showToast('Please enter your WhatsApp number.', 'error');
+      showToast(t('checkout_enter_phone'), 'error');
       return;
     }
     if (orderType === 'delivery' && !deliveryAddress.trim() && !mapsLink.trim()) {
-      showToast('Please add address or pin your location for delivery.', 'error');
+      showToast(t('checkout_add_address'), 'error');
       return;
     }
 
@@ -335,25 +337,23 @@ export default function Checkout() {
       window.snap.pay(edgeData.token, {
         onSuccess: async (_result: any) => {
           await supabase.from('orders').update({ status: 'paid' }).eq('id', customOrderId);
-          showToast('Payment successful!', 'success');
-          // Important: We clear the cart here, but it won't trigger the `/menu` bug
-          // because `isSubmitting` is still evaluated as `true` in our fix.
+          showToast(t('checkout_payment_success'), 'success');
           clearCart();
           navigate(`/orders/${customOrderId}`, { replace: true });
         },
         onPending: (_result: any) => {
-          showToast('Waiting for your payment!', 'info');
+          showToast(t('checkout_payment_waiting'), 'info');
           clearCart();
           navigate(`/orders/${customOrderId}`, { replace: true });
         },
         onError: async (_result: any) => {
           await supabase.from('orders').update({ status: 'cancelled' }).eq('id', customOrderId);
-          showToast('Payment failed! Order cancelled.', 'error');
+          showToast(t('checkout_payment_failed'), 'error');
           setIsSubmitting(false);
         },
         onClose: async () => {
           await supabase.from('orders').update({ status: 'cancelled' }).eq('id', customOrderId);
-          showToast('You closed the popup without finishing the payment. Order cancelled.', 'error');
+          showToast(t('checkout_payment_closed'), 'error');
           setIsSubmitting(false);
         },
       });
@@ -389,49 +389,49 @@ export default function Checkout() {
       <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6">
         <div className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6">
           <button onClick={() => navigate('/menu')} className="text-sm text-slate-500 hover:text-slate-800 inline-flex items-center gap-1 mb-4">
-            <ArrowLeft size={14} /> Back to menu
+            <ArrowLeft size={14} /> {t('checkout_back_menu')}
           </button>
 
-          <h1 className="text-2xl font-serif text-slate-900 mb-4">Checkout</h1>
+          <h1 className="text-2xl font-serif text-slate-900 mb-4">{t('checkout_title')}</h1>
 
           <div className="space-y-3">
-            <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Your name" className="w-full rounded-xl border border-slate-200 px-4 py-2.5" />
-            <input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="WhatsApp number" className="w-full rounded-xl border border-slate-200 px-4 py-2.5" />
+            <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder={t('checkout_your_name')} className="w-full rounded-xl border border-slate-200 px-4 py-2.5" />
+            <input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder={t('checkout_whatsapp')} className="w-full rounded-xl border border-slate-200 px-4 py-2.5" />
 
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 p-1">
-              <button type="button" onClick={() => setOrderType('takeaway')} className={`py-2 rounded-lg text-sm ${orderType === 'takeaway' ? 'bg-[#C5A572] text-black font-semibold' : 'text-slate-600'}`}>Takeaway</button>
-              <button type="button" onClick={() => setOrderType('delivery')} className={`py-2 rounded-lg text-sm ${orderType === 'delivery' ? 'bg-[#C5A572] text-black font-semibold' : 'text-slate-600'}`}>Delivery</button>
+              <button type="button" onClick={() => setOrderType('takeaway')} className={`py-2 rounded-lg text-sm ${orderType === 'takeaway' ? 'bg-[#C5A572] text-black font-semibold' : 'text-slate-600'}`}>{t('checkout_takeaway')}</button>
+              <button type="button" onClick={() => setOrderType('delivery')} className={`py-2 rounded-lg text-sm ${orderType === 'delivery' ? 'bg-[#C5A572] text-black font-semibold' : 'text-slate-600'}`}>{t('checkout_delivery')}</button>
             </div>
 
             {orderType === 'delivery' && (
               <div className="space-y-2">
-                <textarea value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="Full address" className="w-full rounded-xl border border-slate-200 px-4 py-2.5 min-h-[84px]" />
+                <textarea value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder={t('checkout_full_address')} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 min-h-[84px]" />
                 <div className="flex gap-2">
-                  <input value={mapsLink} onChange={(e) => setMapsLink(e.target.value)} placeholder="Google Maps link" className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5" />
+                  <input value={mapsLink} onChange={(e) => setMapsLink(e.target.value)} placeholder={t('checkout_maps_link')} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5" />
                   <button type="button" onClick={handleUseCurrentLocation} className="rounded-xl border border-slate-200 px-3 text-sm inline-flex items-center gap-1" disabled={locationLoading}>
-                    <LocateFixed size={14} /> {locationLoading ? 'Pinning...' : 'Pin'}
+                    <LocateFixed size={14} /> {locationLoading ? t('checkout_pinning') : t('checkout_pin')}
                   </button>
                 </div>
                 {mapsLink && (
                   <a href={mapsLink} target="_blank" rel="noreferrer" className="text-xs text-[#9c7a4c] inline-flex items-center gap-1 hover:underline">
-                    <MapPin size={12} /> View pinned map
+                    <MapPin size={12} /> {t('checkout_view_map')}
                   </a>
                 )}
                 <p className="text-xs rounded-lg border border-amber-200 bg-amber-50 text-amber-700 px-3 py-2">
-                  Delivery fee is paid by the buyer directly to courier upon delivery.
+                  {t('checkout_delivery_fee_note')}
                 </p>
               </div>
             )}
 
-            <textarea value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} placeholder="Order notes" className="w-full rounded-xl border border-slate-200 px-4 py-2.5 min-h-[72px]" />
+            <textarea value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} placeholder={t('checkout_order_notes')} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 min-h-[72px]" />
 
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Promo code" className="w-full rounded-xl border border-slate-200 pl-9 pr-4 py-2.5" />
+                <input value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder={t('checkout_promo_code')} className="w-full rounded-xl border border-slate-200 pl-9 pr-4 py-2.5" />
               </div>
               <button type="button" onClick={handleApplyPromo} className="rounded-xl bg-slate-900 text-slate-50 px-4 text-sm font-medium" disabled={isCheckingPromo}>
-                {isCheckingPromo ? 'Checking...' : 'Apply'}
+                {isCheckingPromo ? t('home_checking') : t('checkout_apply')}
               </button>
             </div>
             {!!promoError && <p className="text-xs text-rose-500">{promoError}</p>}
@@ -442,7 +442,7 @@ export default function Checkout() {
                 onClick={() => setUseAllPoints((v) => !v)}
                 className={`w-full rounded-xl border px-4 py-2.5 text-sm flex items-center justify-between ${useAllPoints ? 'border-[#C5A572] bg-[#C5A572]/10 text-[#9c7a4c]' : 'border-slate-200 text-slate-600'}`}
               >
-                <span className="inline-flex items-center gap-2"><Coins size={14} /> Use all points</span>
+                <span className="inline-flex items-center gap-2"><Coins size={14} /> {t('checkout_use_all_points')}</span>
                 <span>{useAllPoints ? `On (${pointsToUse})` : `Off • Balance ${availablePoints}`}</span>
               </button>
             )}
@@ -450,7 +450,7 @@ export default function Checkout() {
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 h-fit sticky top-24">
-          <h2 className="font-serif text-xl mb-4">Order Summary</h2>
+          <h2 className="font-serif text-xl mb-4">{t('checkout_summary')}</h2>
           <div className="space-y-3 mb-4 max-h-56 overflow-y-auto">
             {cart.map((item) => {
               const modifierLines = getModifierLines(item);
@@ -463,21 +463,21 @@ export default function Checkout() {
                     <span>{item.name} <span className="text-slate-400">x{item.quantity}</span></span>
                     <span>Rp {(item.price * item.quantity).toLocaleString()}</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">Base: Rp {baseUnitPrice.toLocaleString()} / item</p>
+                  <p className="text-[11px] text-slate-500 mt-1">{t('checkout_base')}: Rp {baseUnitPrice.toLocaleString()} / item</p>
                   {modifierLines.map((line, idx) => (
                     <p key={idx} className="text-[11px] text-slate-500">• {line.label} {line.extra > 0 ? `( +Rp ${line.extra.toLocaleString()} )` : ''}</p>
                   ))}
-                  {item.modifiers?.notes && <p className="text-[11px] italic text-slate-500">Note: {item.modifiers.notes}</p>}
+                  {item.modifiers?.notes && <p className="text-[11px] italic text-slate-500">{t('cart_note')}: {item.modifiers.notes}</p>}
                 </div>
               );
             })}
           </div>
 
           <div className="space-y-2 text-sm border-t border-slate-100 pt-3">
-            <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span>Rp {cartTotal.toLocaleString()}</span></div>
-            {discountAmount > 0 && <div className="flex justify-between text-emerald-600"><span>Promo</span><span>-Rp {discountAmount.toLocaleString()}</span></div>}
-            {pointsToUse > 0 && <div className="flex justify-between text-emerald-600"><span>Points</span><span>-Rp {pointsToUse.toLocaleString()}</span></div>}
-            <div className="flex justify-between text-lg font-serif pt-1"><span>Total</span><span className="text-[#9c7a4c]">Rp {finalTotal.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">{t('checkout_subtotal')}</span><span>Rp {cartTotal.toLocaleString()}</span></div>
+            {discountAmount > 0 && <div className="flex justify-between text-emerald-600"><span>{t('checkout_promo')}</span><span>-Rp {discountAmount.toLocaleString()}</span></div>}
+            {pointsToUse > 0 && <div className="flex justify-between text-emerald-600"><span>{t('checkout_points')}</span><span>-Rp {pointsToUse.toLocaleString()}</span></div>}
+            <div className="flex justify-between text-lg font-serif pt-1"><span>{t('checkout_total')}</span><span className="text-[#9c7a4c]">Rp {finalTotal.toLocaleString()}</span></div>
             <p className="text-xs text-slate-500 pt-1">
               {user
                 ? `Points earned from this order: +${estimatedPointsEarned} (0.5% of total)`
@@ -488,7 +488,7 @@ export default function Checkout() {
 
           {isOrderingUnavailable && (
             <p className="text-xs rounded-lg border border-rose-200 bg-rose-50 text-rose-700 px-3 py-2 mt-4">
-              Sorry, Ulun currently can\'t take online orders. Please try again in a few minutes.
+              {t('checkout_ordering_retry')}
             </p>
           )}
 
@@ -502,12 +502,12 @@ export default function Checkout() {
             }`}
           >
             {isSubmitting
-              ? 'Processing...'
+              ? t('checkout_processing')
               : isCheckingOrderAvailability
-                ? 'Checking order service...'
+                ? t('checkout_checking_service')
                 : isOrderingUnavailable
-                  ? 'Online ordering unavailable'
-                  : 'Place Order'}
+                  ? t('cart_unavailable')
+                  : t('checkout_place_order')}
           </button>
         </div>
       </div>

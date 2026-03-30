@@ -9,8 +9,9 @@ import { useCart } from '../context/CartContext';
 import PageSkeleton from '../components/common/PageSkeleton';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../context/LanguageContext';
 
-type SortOption = 'name-asc' | 'price-asc' | 'price-desc' | 'popular';
+type SortOption = 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc' | 'popular';
 
 export default function Menu() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -25,6 +26,7 @@ export default function Menu() {
   const { cartCount, cartTotal, setIsCartOpen } = useCart();
   const { user } = useAuth();
   const { showToast } = useFeedback();
+    const { t } = useLanguage();
   const navigate = useNavigate();
 
   const getProductsAndFavorites = async () => {
@@ -86,29 +88,47 @@ export default function Menu() {
   }, [categories, activeCategory]);
 
   const filteredProducts = useMemo(() => {
-    const lowerSearch = searchQuery.trim().toLowerCase();
+    const lowerSearch = searchQuery.trim().toLowerCase();
 
-    const categoryFiltered = products.filter((item) => {
-      if (activeCategory === 'All') return true;
-      if (activeCategory === 'Bundles') return !!item.is_bundle;
-      return item.category === activeCategory;
-    });
+    const categoryFiltered = products.filter((item) => {
+      if (activeCategory === 'All') return true;
+      if (activeCategory === 'Bundles') return !!item.is_bundle;
+      return item.category === activeCategory;
+    });
 
-    const searchFiltered = categoryFiltered.filter((item) => {
-      if (!lowerSearch) return true;
-      const inName = item.name.toLowerCase().includes(lowerSearch);
-      const inDesc = (item.description || '').toLowerCase().includes(lowerSearch);
-      const inCategory = (item.category || '').toLowerCase().includes(lowerSearch);
-      return inName || inDesc || inCategory;
-    });
+    const searchFiltered = categoryFiltered.filter((item) => {
+      if (!lowerSearch) return true;
+      const inName = item.name.toLowerCase().includes(lowerSearch);
+      const inDesc = (item.description || '').toLowerCase().includes(lowerSearch);
+      const inCategory = (item.category || '').toLowerCase().includes(lowerSearch);
+      return inName || inDesc || inCategory;
+    });
 
-    const sorted = [...searchFiltered];
-    if (sortBy === 'name-asc') sorted.sort((a, b) => a.name.localeCompare(b.name));
-    if (sortBy === 'price-asc') sorted.sort((a, b) => a.price - b.price);
-    if (sortBy === 'price-desc') sorted.sort((a, b) => b.price - a.price);
+    const sorted = [...searchFiltered];
+    
+    if (sortBy === 'popular') {
+      sorted.sort((a, b) => {
+        const aRec = (a as any).is_recommended ? 1 : 0;
+        const bRec = (b as any).is_recommended ? 1 : 0;
+        
+        if (aRec !== bRec) {
+          return bRec - aRec;
+        }
 
-    return sorted;
-  }, [products, activeCategory, searchQuery, sortBy]);
+        const aFavs = favoriteCounts[a.id] || 0;
+        const bFavs = favoriteCounts[b.id] || 0;
+        return bFavs - aFavs;
+      });
+    }
+
+    if (sortBy === 'name-asc') sorted.sort((a, b) => a.name.localeCompare(b.name));
+    if (sortBy === 'name-desc') sorted.sort((a, b) => b.name.localeCompare(a.name));
+    if (sortBy === 'price-asc') sorted.sort((a, b) => a.price - b.price);
+    if (sortBy === 'price-desc') sorted.sort((a, b) => b.price - a.price);
+
+    return sorted;
+    
+  }, [products, activeCategory, searchQuery, sortBy, favoriteCounts]);
 
   const top3FavoriteIds = useMemo(
     () =>
@@ -155,10 +175,10 @@ export default function Menu() {
         <div className="max-w-7xl mx-auto w-full">
           <div className="flex justify-between items-end mb-4">
             <div>
-              <p className="text-[#C5A572] text-xs uppercase tracking-widest mb-1">Explore</p>
-              <h2 className="text-2xl md:text-4xl font-serif text-slate-900">Our Menu</h2>
+              <p className="text-[#C5A572] text-xs uppercase tracking-widest mb-1">{t('menu_explore')}</p>
+              <h2 className="text-2xl md:text-4xl font-serif text-slate-900">{t('menu_title')}</h2>
             </div>
-            <p className="text-xs text-slate-500">{filteredProducts.length} items</p>
+            <p className="text-xs text-slate-500">{filteredProducts.length} {t('menu_items')}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 mb-3">
@@ -167,7 +187,7 @@ export default function Menu() {
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search drink, pastry, category..."
+                placeholder={t('menu_search_placeholder')}
                 className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-[#C5A572]"
               />
             </div>
@@ -179,10 +199,11 @@ export default function Menu() {
                 onChange={(e) => setSortBy(e.target.value as SortOption)}
                 className="appearance-none w-full md:w-56 pl-9 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-[#C5A572]"
               >
-                <option value="popular">Recommended</option>
-                <option value="name-asc">Name (A-Z)</option>
-                <option value="price-asc">Price (Low to High)</option>
-                <option value="price-desc">Price (High to Low)</option>
+                <option value="popular">{t('menu_sort_recommended')}</option>
+                <option value="name-asc">{t('menu_sort_name_asc')}</option>
+                <option value="name-desc">{t('menu_sort_name_desc')}</option>
+                <option value="price-asc">{t('menu_sort_price_low')}</option>
+                <option value="price-desc">{t('menu_sort_price_high')}</option>
               </select>
             </div>
           </div>
@@ -211,7 +232,7 @@ export default function Menu() {
             <PageSkeleton rows={8} />
           ) : (
             <>
-              <div className="md:hidden mb-4 text-xs text-slate-500">Swipe categories, then tap a menu card to customize.</div>
+              <div className="md:hidden mb-4 text-xs text-slate-500">{t('menu_swipe_hint')}</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 md:gap-x-6 gap-y-3 md:gap-y-8">
                 {filteredProducts.map((item) => (
                   <ProductCard
@@ -227,8 +248,8 @@ export default function Menu() {
 
                 {filteredProducts.length === 0 && (
                   <div className="col-span-full text-center py-20 text-slate-500 border border-dashed border-slate-300 rounded-xl bg-white">
-                    <p className="font-medium mb-1">No items found.</p>
-                    <p className="text-xs">Try another category, clear search, or change sorting.</p>
+                    <p className="font-medium mb-1">{t('menu_empty_title')}</p>
+                    <p className="text-xs">{t('menu_empty_description')}</p>
                   </div>
                 )}
               </div>
@@ -247,7 +268,7 @@ export default function Menu() {
               <div className="bg-black text-[#C5A572] text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center">
                 {cartCount}
               </div>
-              <span className="font-serif font-bold text-sm tracking-wide">View Order</span>
+              <span className="font-serif font-bold text-sm tracking-wide">{t('menu_view_order')}</span>
             </div>
             <span className="font-bold font-serif text-sm">Rp {cartTotal.toLocaleString()}</span>
           </button>
