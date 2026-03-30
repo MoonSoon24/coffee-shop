@@ -708,13 +708,15 @@ export default function Admin() {
               </div>
 
   {filteredProducts.length === 0 ? (
-    <p className="text-gray-500 text-center py-10">No products found.</p>
-  ) : filteredProducts.map(product => {
-    const originalSum = product.is_bundle 
-      ? (product as any).product_bundles?.reduce((sum: number, pb: any) => sum + ((pb.products?.price || 0) * pb.quantity), 0)
-      : 0;
+  <p className="text-gray-500 text-center py-10">No products found.</p>
+) : filteredProducts.map((product, index) => {
+  const originalSum = product.is_bundle 
+    ? (product as any).product_bundles?.reduce((sum: number, pb: any) => sum + ((pb.products?.price || 0) * pb.quantity), 0)
+    : 0;
 
     const isMenuOpen = activeMenuId === product.id;
+
+    const isNearBottom = index >= filteredProducts.length - 3;
 
     return (
       <div 
@@ -734,20 +736,20 @@ export default function Admin() {
               </button>
 
               {isMenuOpen && (
-                <div className="absolute right-0 top-full mt-1 w-40 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-2xl py-1 z-[110]">
+                <div className={`absolute right-0 w-40 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-2xl py-1 z-[110] ${isNearBottom ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
                   <button onClick={() => handleEditProduct(product)} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
-                      <Edit2 size={12} /> Edit Details
-                    </button>
-                    <button onClick={() => openModifierModal(product)} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
-                      <Settings size={12} /> Manage Add-ons
-                    </button>
-                    <button onClick={() => { toggleRecommended(product.id, (product as any).is_recommended); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
-                      <Star size={12} /> {(product as any).is_recommended ? 'Remove Recommended' : 'Mark Recommended'}
-                    </button>
-                    <div className="h-px bg-white/10 my-1" />
-                    <button onClick={() => { openConfirm(product.is_available ? "Archive" : "Restore", "Are you sure?", async () => toggleProductAvailability(product.id, product.is_available), true); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
-                      {product.is_available ? <Trash2 size={12} /> : <RefreshCcw size={12} />} {product.is_available ? 'Archive' : 'Restore'}
-                    </button>
+                    <Edit2 size={12} /> Edit Details
+                  </button>
+                  <button onClick={() => openModifierModal(product)} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
+                    <Settings size={12} /> Manage Add-ons
+                  </button>
+                  <button onClick={() => { toggleRecommended(product.id, (product as any).is_recommended); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
+                    <Star size={12} /> {(product as any).is_recommended ? 'Remove Recommended' : 'Mark Recommended'}
+                  </button>
+                  <div className="h-px bg-white/10 my-1" />
+                  <button onClick={() => { openConfirm(product.is_available ? "Archive" : "Restore", "Are you sure?", async () => toggleProductAvailability(product.id, product.is_available), true); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
+                    {product.is_available ? <Trash2 size={12} /> : <RefreshCcw size={12} />} {product.is_available ? 'Archive' : 'Restore'}
+                  </button>
                 </div>
               )}
             </div>
@@ -780,7 +782,6 @@ export default function Admin() {
                         </div>
                       ) : <p className="admin-category-tag">{product.category}</p>}
 
-                      {/* --- INDICATOR IF MODIFIERS EXIST --- */}
                       {(product as any).modifiers && (product as any).modifiers.length > 0 && (
                           <div className="mt-2 flex items-center gap-1 text-[10px] text-gray-500">
                               <Settings size={10} />
