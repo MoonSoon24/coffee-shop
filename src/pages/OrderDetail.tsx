@@ -9,7 +9,8 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  Coffee
+  Coffee,
+  MessageSquareQuote // Added icon for the order notes
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -272,7 +273,6 @@ export default function OrderDetail() {
   };
 
   // 3. UI Status Configuration
-  // 3. UI Status Configuration
   const statusConfig = useMemo(() => {
     if (!order) return { color: 'bg-slate-100 text-slate-700 border-slate-200', icon: Clock, label: t('order_detail_loading') || 'Loading...' };
     
@@ -302,7 +302,6 @@ export default function OrderDetail() {
   }
 
   if (isInvalidOrderId || accessState === 'not_found') {
-    // ... (Keep existing Not Found UI)
     return (
       <div className="min-h-screen bg-[#f6f7fb] pt-24 px-4 pb-10">
         <div className="max-w-xl mx-auto bg-white border border-slate-200 rounded-3xl p-8 text-center shadow-sm">
@@ -317,7 +316,6 @@ export default function OrderDetail() {
   }
 
   if (accessState !== 'granted' || !order) {
-    // ... (Keep existing Recovery UI, maybe rounded-3xl)
     return (
       <div className="min-h-screen bg-[#f6f7fb] pt-24 px-4 pb-10">
         <div className="max-w-xl mx-auto bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
@@ -392,7 +390,7 @@ export default function OrderDetail() {
             </div>
 
             {/* Customer & Total Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
               <div className="rounded-2xl bg-slate-50 p-5 border border-slate-100">
                 <p className="text-xs uppercase tracking-wider text-slate-400 mb-2">{t('order_detail_customer')}</p>
                 <p className="font-medium text-slate-900 text-lg mb-0.5">{order.customer_name || t('order_detail_guest_customer')}</p>
@@ -406,7 +404,17 @@ export default function OrderDetail() {
               </div>
             </div>
 
-            {/* Items List */}
+            {order.notes && (
+              <div className="mb-10 rounded-2xl bg-amber-50/50 p-5 border border-amber-100/50 flex gap-3 items-start">
+                <MessageSquareQuote size={20} className="text-[#C5A572] shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">{t('order_detail_order_notes')}</p>
+                  <p className="text-sm text-slate-800 leading-relaxed">{order.notes}</p>
+                </div>
+              </div>
+            )}
+            {!order.notes && <div className="mb-10" />}
+
             <div>
               <h3 className="text-sm font-medium uppercase tracking-wider text-slate-900 mb-4 flex items-center gap-2 border-b border-slate-100 pb-4">
                 <ReceiptText size={18} className="text-[#C5A572]" /> {t('order_detail_items')}

@@ -85,6 +85,13 @@ export default function OrderDetailModal({ isOpen, onClose, order, isAdmin = fal
             )}
           </div>
 
+          {order.notes && (
+            <div className="rounded-xl border border-slate-200 p-3 bg-slate-50">
+              <p className="text-xs text-slate-500 mb-1">Order Notes</p>
+              <p className="text-sm text-slate-800 italic">"{order.notes}"</p>
+            </div>
+          )}
+
           <div className="flex justify-between items-center">
             <span className={`text-[11px] px-2.5 py-1 rounded-full uppercase font-bold ${statusTone}`}>{order.status}</span>
             {!!order.points_used && (
