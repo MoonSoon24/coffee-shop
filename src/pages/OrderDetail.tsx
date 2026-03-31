@@ -155,24 +155,18 @@ export default function OrderDetail() {
   }, [isInvalidOrderId, parsedOrderId, user?.id]);
 
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
-  const [isExpired, setIsExpired] = useState(false);
 
-  // 1. Auto-Cancel Function
   const handleAutoCancel = async () => {
     if (!order?.id || order.status === 'cancelled') return;
     
-    // Update database to cancelled
     await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id);
     
-    // Update local state so UI reacts instantly
     setOrder((prev: any) => ({ ...prev, status: 'cancelled' }));
-    setIsExpired(true);
+
     showToast("Order cancelled due to payment timeout", "error");
   };
 
-  // 2. Countdown Timer Effect
   useEffect(() => {
-    // Only run if the order is pending and has a creation date
     if (order?.status?.toLowerCase() !== 'pending' || !order?.created_at) {
       setTimeLeft(null);
       return;
