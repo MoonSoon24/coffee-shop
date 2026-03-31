@@ -52,6 +52,10 @@ serve(async (req) => {
           first_name: customer_name,
           phone: customer_phone,
         },
+        custom_expiry: {
+          expiry_duration: 15,
+          unit: "minute"
+        }
       }),
     });
 
