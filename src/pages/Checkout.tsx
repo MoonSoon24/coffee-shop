@@ -352,10 +352,10 @@ export default function Checkout() {
           setIsSubmitting(false);
         },
         onClose: async () => {
-          await supabase.from('orders').update({ status: 'cancelled' }).eq('id', customOrderId);
-          showToast(t('checkout_payment_closed'), 'error');
-          setIsSubmitting(false);
-        },
+          clearCart();
+          showToast("Payment paused. You can complete it from the order detail.", 'info');
+          navigate(`/orders/${customOrderId}`, { replace: true });
+        }
       });
     } catch (e: any) {
       showToast(`Checkout failed: ${e.message}`, 'error');
