@@ -29,6 +29,11 @@ export default function ProductModal({
   const [notes, setNotes] = useState('');
   const [isAddAnimating, setIsAddAnimating] = useState(false);
   const [flyToCart, setFlyToCart] = useState(false);
+  
+  // Animation coordinate states
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  const [cartPos, setCartPos] = useState({ x: 0, y: 0 });
+  
   const { addToCart, removeFromCart } = useCart();
   const { t } = useLanguage();
 
@@ -37,14 +42,12 @@ export default function ProductModal({
     return value.filter((group: any) => group && typeof group === 'object' && Array.isArray(group.options));
   };
 
-  // Reset state when product opens
   useEffect(() => {
     if (isOpen && product) {
       setQuantity((product as any).quantity || 1);
       setIsAddAnimating(false);
       setFlyToCart(false);
 
-      // If editing from cart
       if ((product as any).cartId) {
         setSelections((product as any).modifiers?.selections || {});
         setNotes((product as any).modifiers?.notes || '');
@@ -57,8 +60,6 @@ export default function ProductModal({
     }
   }, [isOpen, product]);
 
-
-  // Dynamic Price Calculation
   useEffect(() => {
     if (!product) return;
 
@@ -81,7 +82,6 @@ export default function ProductModal({
 
   const modifierGroups = getModifierGroups((product as any).modifiersData || (product as any).modifiers);
 
-  // Toggle Logic (Radio vs Checkbox)
   const toggleSelection = (
     modId: string,
     optId: string,
@@ -93,17 +93,12 @@ export default function ProductModal({
 
       if (isSingle) {
         const alreadySelected = current.includes(optId);
-
-        // If optional radio → allow deselect
         if (!isRequired && alreadySelected) {
           return { ...prev, [modId]: [] };
         }
-
-        // Otherwise behave like normal radio
         return { ...prev, [modId]: [optId] };
       }
 
-      // Checkbox behavior
       const exists = current.includes(optId);
       const newSelection = exists
         ? current.filter(id => id !== optId)
@@ -113,8 +108,6 @@ export default function ProductModal({
     });
   };
 
-
-  // Validate Required Fields
   const isValid = modifierGroups.every((mod: any) => {
     if (!mod.isRequired) return true;
     const selected = selections[mod.id] || [];
@@ -133,20 +126,39 @@ export default function ProductModal({
       modifiersData: modifierGroups
     };
 
-
-    if ((product as any).cartId) {
-      // Editing existing item
-      removeFromCart((product as any).cartId);
+    // Calculate Modal Start Coordinates
+    const modalEl = document.getElementById('product-modal-content');
+    if (modalEl) {
+      const rect = modalEl.getBoundingClientRect();
+      setStartPos({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    } else {
+      setStartPos({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
     }
 
-    addToCart(finalItem, quantity, { openCart: false });
+    // Calculate Cart Badge Destination Coordinates
+    const cartIcon = document.getElementById('cart-nav-badge') || document.getElementById('cart-nav-icon');
+    if (cartIcon) {
+      const rect = cartIcon.getBoundingClientRect();
+      setCartPos({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    } else {
+      setCartPos({ x: window.innerWidth - 40, y: 30 }); // Safe Fallback
+    }
+
     setIsAddAnimating(true);
-    setTimeout(() => setFlyToCart(true), 250);
+    
+    // Step 1: Wait 350ms while Modal Shrinks into Dot
+    setTimeout(() => setFlyToCart(true), 350); 
+    
+    // Step 2: Animate flying for 500ms, then finalize context values
     setTimeout(() => {
+      if ((product as any).cartId) {
+        removeFromCart((product as any).cartId);
+      }
+      addToCart(finalItem, quantity, { openCart: false });
       setIsAddAnimating(false);
       setFlyToCart(false);
       onClose();
-    }, 900);
+    }, 850);
   };
 
   return (
@@ -162,8 +174,9 @@ export default function ProductModal({
       {/* MODAL CONTAINER */}
       <div className="fixed inset-0 z-[90] flex items-end md:items-center justify-center pointer-events-none">
         <div
-          className={`pointer-events-auto bg-[#141414] w-full md:w-[480px] md:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col max-h-[90vh] border border-white/10 transition-all duration-500 ${
-            isAddAnimating ? 'scale-[0.08] opacity-0 rounded-full' : 'animate-in slide-in-from-bottom-10 duration-300 scale-100 opacity-100'
+          id="product-modal-content"
+          className={`pointer-events-auto bg-[#141414] w-full md:w-[480px] md:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col max-h-[90vh] border border-white/10 transition-all duration-500 origin-center ${
+            isAddAnimating ? 'scale-[0.05] opacity-0 rounded-full' : 'animate-in slide-in-from-bottom-10 duration-300 scale-100 opacity-100'
           }`}
         >
           {/* Header Image */}
@@ -291,8 +304,13 @@ export default function ProductModal({
 
       {isAddAnimating && (
         <div
-          className={`fixed z-[120] flex items-center justify-center w-10 h-10 rounded-full bg-[#C5A572] text-black font-bold text-xs shadow-[0_0_25px_rgba(197,165,114,0.75)] transition-all duration-500 ${
-            flyToCart ? 'top-4 right-4 scale-75' : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-100'
+          style={{
+            top: flyToCart ? `${cartPos.y}px` : `${startPos.y}px`,
+            left: flyToCart ? `${cartPos.x}px` : `${startPos.x}px`,
+            transform: `translate(-50%, -50%) scale(${flyToCart ? 0.33 : 1})`,
+          }}
+          className={`fixed z-[120] flex items-center justify-center w-12 h-12 rounded-full bg-[#C5A572] text-black font-bold text-sm shadow-[0_0_30px_rgba(197,165,114,0.6)] pointer-events-none transition-all ease-in-out ${
+            flyToCart ? 'duration-500' : 'duration-300 animate-in fade-in zoom-in-50'
           }`}
         >
           +{quantity}

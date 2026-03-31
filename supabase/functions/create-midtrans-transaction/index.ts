@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -62,6 +63,31 @@ serve(async (req) => {
         status: 400,
       });
     }
+
+    // --- NEW: Save the payment_token to Supabase database ---
+    
+    // Create Supabase client using built-in edge function environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    
+    // We pass the Authorization header from the client request so Row Level Security (RLS) policies are respected
+    const authHeader = req.headers.get('Authorization');
+    
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader || '' } },
+    });
+
+    // Update the specific order in the 'orders' table
+    const { error: dbError } = await supabase
+      .from('orders')
+      .update({ payment_token: data.token })
+      .eq('id', order_id);
+
+    if (dbError) {
+      console.error('Failed to save payment_token to the database:', dbError);
+      // We log the error but still return the token to the client so the user isn't completely blocked
+    }
+    // --------------------------------------------------------
 
     return new Response(JSON.stringify({ token: data.token, redirect_url: data.redirect_url }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -10,13 +10,26 @@ import {
   CheckCircle2,
   XCircle,
   Coffee,
-  MessageSquareQuote // Added icon for the order notes
+  MessageSquareQuote,
+  CreditCard
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useFeedback } from '../context/FeedbackContext';
 import { getGuestOrderAccessPhone, hasGuestOrderAccess, normalizeOrderPhone, saveGuestOrderAccess } from '../utils/orderAccess';
 import { useLanguage } from '../context/LanguageContext';
+
+declare global {
+  interface Window {
+    snap: any;
+  }
+}
+
+const MIDTRANS_CLIENT_KEY = import.meta.env.VITE_MIDTRANS_CLIENT_KEY as string | undefined;
+const IS_MIDTRANS_PRODUCTION = String(import.meta.env.VITE_MIDTRANS_IS_PRODUCTION || 'false') === 'true';
+const MIDTRANS_SNAP_URL = IS_MIDTRANS_PRODUCTION
+  ? 'https://app.midtrans.com/snap/snap.js'
+  : 'https://app.sandbox.midtrans.com/snap/snap.js';
 
 type AccessState = 'checking' | 'granted' | 'needs_recovery' | 'not_found';
 
@@ -140,11 +153,9 @@ export default function OrderDetail() {
     fetchOrder();
   }, [isInvalidOrderId, parsedOrderId, user?.id]);
 
-  // 2. REALTIME SUBSCRIPTION
   useEffect(() => {
     if (!order?.id || accessState !== 'granted') return;
 
-    // Subscribe to changes specifically for this order ID
     const channel = supabase
       .channel(`public:orders:${order.id}`)
       .on(
@@ -156,7 +167,6 @@ export default function OrderDetail() {
           filter: `id=eq.${order.id}`,
         },
         (payload) => {
-          // Merge the updated fields into our current order state
           setOrder((currentOrder: any) => ({
             ...currentOrder,
             ...payload.new,
@@ -170,7 +180,49 @@ export default function OrderDetail() {
     };
   }, [order?.id, accessState]);
 
-  // ... (Keep existing Guest Warning useEffects and handlers here)
+  useEffect(() => {
+    if (!MIDTRANS_CLIENT_KEY) return;
+
+    let scriptTag = document.querySelector(`script[src="${MIDTRANS_SNAP_URL}"]`);
+
+    if (!scriptTag) {
+      const script = document.createElement('script');
+      script.src = MIDTRANS_SNAP_URL;
+      script.setAttribute('data-client-key', MIDTRANS_CLIENT_KEY);
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  const handlePayNow = () => {
+    const token = order?.payment_token; 
+
+    if (!token) {
+      console.error("Payment token not found. Please contact support or place a new order.");
+      return;
+    }
+
+    if (window.snap) {
+      window.snap.pay(token, {
+        onSuccess: function (result: any) {
+          console.log('Payment success:', result);
+          window.location.reload(); 
+        },
+        onPending: function (result: any) {
+          console.log('Payment pending:', result);
+        },
+        onError: function (result: any) {
+          console.error('Payment error:', result);
+        },
+        onClose: function () {
+          console.log('User closed the modal again.');
+        }
+      });
+    } else {
+      console.error("Midtrans Snap script failed to load.");
+    }
+  };
+
   useEffect(() => {
     if (!shouldWarnGuestNavigation) return;
 
@@ -403,6 +455,22 @@ export default function OrderDetail() {
                 <p className="font-serif text-3xl text-[#9c7a4c]">Rp {Number(order.total_price || 0).toLocaleString('id-ID')}</p>
               </div>
             </div>
+
+            {order.status === 'pending' && order.payment_token && (
+              <div className="mb-8 p-6 bg-amber-50 border border-amber-200 rounded-2xl text-center shadow-sm">
+                <h3 className="text-amber-900 font-serif text-lg mb-2">Awaiting Payment</h3>
+                <p className="text-sm text-amber-700 mb-5">
+                  It looks like this order hasn't been paid yet. Please complete your payment to process the order.
+                </p>
+                <button
+                  onClick={handlePayNow}
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-black uppercase tracking-widest bg-[#C5A572] hover:bg-[#b09366] active:scale-95 transition-all shadow-md inline-flex items-center justify-center gap-2"
+                >
+                  <CreditCard size={18} />
+                  Pay Now
+                </button>
+              </div>
+            )}
 
             {order.notes && (
               <div className="mb-10 rounded-2xl bg-amber-50/50 p-5 border border-amber-100/50 flex gap-3 items-start">
