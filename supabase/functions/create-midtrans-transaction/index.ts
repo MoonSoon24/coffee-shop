@@ -66,16 +66,11 @@ serve(async (req) => {
 
     // --- NEW: Save the payment_token to Supabase database ---
     
-    // Create Supabase client using built-in edge function environment variables
+    // Create Supabase client using the SERVICE ROLE KEY to bypass RLS
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     
-    // We pass the Authorization header from the client request so Row Level Security (RLS) policies are respected
-    const authHeader = req.headers.get('Authorization');
-    
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader || '' } },
-    });
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Update the specific order in the 'orders' table
     const { error: dbError } = await supabase

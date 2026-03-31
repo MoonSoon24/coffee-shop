@@ -11,7 +11,8 @@ import {
   XCircle,
   Coffee,
   MessageSquareQuote,
-  CreditCard
+  CreditCard,
+  Timer
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -152,6 +153,57 @@ export default function OrderDetail() {
 
     fetchOrder();
   }, [isInvalidOrderId, parsedOrderId, user?.id]);
+
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
+  const [isExpired, setIsExpired] = useState(false);
+
+  // 1. Auto-Cancel Function
+  const handleAutoCancel = async () => {
+    if (!order?.id || order.status === 'cancelled') return;
+    
+    // Update database to cancelled
+    await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id);
+    
+    // Update local state so UI reacts instantly
+    setOrder((prev: any) => ({ ...prev, status: 'cancelled' }));
+    setIsExpired(true);
+    showToast("Order cancelled due to payment timeout", "error");
+  };
+
+  // 2. Countdown Timer Effect
+  useEffect(() => {
+    // Only run if the order is pending and has a creation date
+    if (order?.status?.toLowerCase() !== 'pending' || !order?.created_at) {
+      setTimeLeft(null);
+      return;
+    }
+
+    // const EXPIRY_HOURS = 24;
+    // const expiryTime = new Date(order.created_at).getTime() + (EXPIRY_HOURS * 60 * 60 * 1000);
+
+    const EXPIRY_MINUTES = 15;
+    const expiryTime = new Date(order.created_at).getTime() + (EXPIRY_MINUTES * 60 * 1000);
+
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const distance = expiryTime - now;
+
+      if (distance <= 0) {
+        clearInterval(interval);
+        setTimeLeft("00:00:00");
+        handleAutoCancel();
+      } else {
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+        const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        setTimeLeft(formattedTime);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [order?.status, order?.created_at]);
 
   useEffect(() => {
     if (!order?.id || accessState !== 'granted') return;
@@ -457,11 +509,26 @@ export default function OrderDetail() {
             </div>
 
             {order.status === 'pending' && order.payment_token && (
-              <div className="mb-8 p-6 bg-amber-50 border border-amber-200 rounded-2xl text-center shadow-sm">
+              <div className="mb-8 p-6 bg-amber-50 border border-amber-200 rounded-2xl text-center shadow-sm relative overflow-hidden">
+                
+                <div className="absolute top-0 left-0 w-full h-1 bg-amber-500/20">
+                  <div className="h-full bg-amber-400 animate-pulse w-full rounded-full"></div>
+                </div>
+
                 <h3 className="text-amber-900 font-serif text-lg mb-2">Awaiting Payment</h3>
-                <p className="text-sm text-amber-700 mb-5">
+                <p className="text-sm text-amber-700 mb-4">
                   It looks like this order hasn't been paid yet. Please complete your payment to process the order.
                 </p>
+
+                {timeLeft && (
+                  <div className="flex items-center justify-center gap-2 mb-5">
+                    <div className="flex items-center gap-1.5 px-4 py-2 bg-rose-100 text-rose-700 rounded-lg border border-rose-200 font-mono font-medium tracking-wider">
+                      <Timer size={16} className={timeLeft.startsWith('00:00') ? 'animate-pulse text-rose-600' : ''} />
+                      {timeLeft}
+                    </div>
+                  </div>
+                )}
+
                 <button
                   onClick={handlePayNow}
                   className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-black uppercase tracking-widest bg-[#C5A572] hover:bg-[#b09366] active:scale-95 transition-all shadow-md inline-flex items-center justify-center gap-2"
