@@ -18,8 +18,8 @@ interface CartItem extends Product {
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void; // Updated signature
-  removeFromCart: (cartId: string) => void; // Updated to use cartId
+  addToCart: (product: Product, quantity?: number, options?: { openCart?: boolean }) => void;
+  removeFromCart: (cartId: string) => void;
   clearCart: () => void;
   cartTotal: number;
   cartCount: number;
@@ -43,40 +43,40 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
 
-  const addToCart = (product: Product, quantity: number = 1) => {
-  setCart((prevCart) => {
-    const modifiers = (product as any).modifiers;
-    const modifiersData = (product as any).modifiersData ?? (Array.isArray((product as any).modifiers) ? (product as any).modifiers : undefined);
-    const basePrice = (product as any).basePrice ?? product.price;
-    const selections = modifiers?.selections || {};
+  const addToCart = (product: Product, quantity: number = 1, options: { openCart?: boolean } = {}) => {
+    setCart((prevCart) => {
+      const modifiers = (product as any).modifiers;
+      const modifiersData = (product as any).modifiersData ?? (Array.isArray((product as any).modifiers) ? (product as any).modifiers : undefined);
+      const basePrice = (product as any).basePrice ?? product.price;
+      const selections = modifiers?.selections || {};
 
-    const uniqueId = generateCartId(product, selections);
+      const uniqueId = generateCartId(product, selections);
 
-    const existingItem = prevCart.find((item) => item.cartId === uniqueId);
+      const existingItem = prevCart.find((item) => item.cartId === uniqueId);
 
-    if (existingItem) {
-      return prevCart.map((item) =>
-        item.cartId === uniqueId
-          ? { ...item, quantity: item.quantity + quantity }
-          : item
-      );
-    } else {
-      const newItem: CartItem = {
-        ...product,
-        cartId: uniqueId,
-        quantity,
-        basePrice,
-        modifiers,
-        modifiersData,
-      };
-      return [...prevCart, newItem];
+      if (existingItem) {
+        return prevCart.map((item) =>
+          item.cartId === uniqueId
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
+      } else {
+        const newItem: CartItem = {
+          ...product,
+          cartId: uniqueId,
+          quantity,
+          basePrice,
+          modifiers,
+          modifiersData,
+        };
+        return [...prevCart, newItem];
+      }
+    });
+
+    if (options.openCart !== false) {
+      setIsCartOpen(true);
     }
-  });
-
-  setIsCartOpen(true);
-};
-
-
+  };
 
   const removeFromCart = (cartId: string) => {
     setCart((prevCart) => {

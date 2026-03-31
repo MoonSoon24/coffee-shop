@@ -27,9 +27,10 @@ export default function ProductModal({
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [totalPrice, setTotalPrice] = useState(0);
   const [notes, setNotes] = useState('');
+  const [isAddAnimating, setIsAddAnimating] = useState(false);
+  const [flyToCart, setFlyToCart] = useState(false);
   const { addToCart, removeFromCart } = useCart();
   const { t } = useLanguage();
-
 
   const getModifierGroups = (value: unknown) => {
     if (!Array.isArray(value)) return [] as any[];
@@ -38,27 +39,29 @@ export default function ProductModal({
 
   // Reset state when product opens
   useEffect(() => {
-  if (isOpen && product) {
-    setQuantity((product as any).quantity || 1);
+    if (isOpen && product) {
+      setQuantity((product as any).quantity || 1);
+      setIsAddAnimating(false);
+      setFlyToCart(false);
 
-    // If editing from cart
-    if ((product as any).cartId) {
-      setSelections((product as any).modifiers?.selections || {});
-      setNotes((product as any).modifiers?.notes || '');
-    } else {
-      setSelections({});
-      setNotes('');
+      // If editing from cart
+      if ((product as any).cartId) {
+        setSelections((product as any).modifiers?.selections || {});
+        setNotes((product as any).modifiers?.notes || '');
+      } else {
+        setSelections({});
+        setNotes('');
+      }
+
+      setTotalPrice(((product as any).basePrice ?? product.price));
     }
-
-    setTotalPrice(((product as any).basePrice ?? product.price));
-  }
-}, [isOpen, product]);
+  }, [isOpen, product]);
 
 
   // Dynamic Price Calculation
   useEffect(() => {
     if (!product) return;
-    
+
     let addonsTotal = 0;
     const modifierGroups = getModifierGroups((product as any).modifiersData || (product as any).modifiers);
 
@@ -80,35 +83,35 @@ export default function ProductModal({
 
   // Toggle Logic (Radio vs Checkbox)
   const toggleSelection = (
-  modId: string,
-  optId: string,
-  isSingle: boolean,
-  isRequired: boolean
-) => {
-  setSelections(prev => {
-    const current = prev[modId] || [];
+    modId: string,
+    optId: string,
+    isSingle: boolean,
+    isRequired: boolean
+  ) => {
+    setSelections(prev => {
+      const current = prev[modId] || [];
 
-    if (isSingle) {
-      const alreadySelected = current.includes(optId);
+      if (isSingle) {
+        const alreadySelected = current.includes(optId);
 
-      // If optional radio → allow deselect
-      if (!isRequired && alreadySelected) {
-        return { ...prev, [modId]: [] };
+        // If optional radio → allow deselect
+        if (!isRequired && alreadySelected) {
+          return { ...prev, [modId]: [] };
+        }
+
+        // Otherwise behave like normal radio
+        return { ...prev, [modId]: [optId] };
       }
 
-      // Otherwise behave like normal radio
-      return { ...prev, [modId]: [optId] };
-    }
+      // Checkbox behavior
+      const exists = current.includes(optId);
+      const newSelection = exists
+        ? current.filter(id => id !== optId)
+        : [...current, optId];
 
-    // Checkbox behavior
-    const exists = current.includes(optId);
-    const newSelection = exists
-      ? current.filter(id => id !== optId)
-      : [...current, optId];
-
-    return { ...prev, [modId]: newSelection };
-  });
-};
+      return { ...prev, [modId]: newSelection };
+    });
+  };
 
 
   // Validate Required Fields
@@ -119,161 +122,182 @@ export default function ProductModal({
   });
 
   const handleAddToCart = () => {
-    if (!isValid) return;
+    if (!isValid || isAddAnimating) return;
 
     const finalItem = {
-    ...product,
-    price: (totalPrice / quantity),
-    basePrice: (product as any).basePrice || product.price,
-    quantity,
-    modifiers: { selections, notes },
-    modifiersData: modifierGroups
+      ...product,
+      price: (totalPrice / quantity),
+      basePrice: (product as any).basePrice || product.price,
+      quantity,
+      modifiers: { selections, notes },
+      modifiersData: modifierGroups
     };
 
 
     if ((product as any).cartId) {
-  // Editing existing item
-  removeFromCart((product as any).cartId);
-}
+      // Editing existing item
+      removeFromCart((product as any).cartId);
+    }
 
-addToCart(finalItem, quantity);
-
-    onClose();
+    addToCart(finalItem, quantity, { openCart: false });
+    setIsAddAnimating(true);
+    setTimeout(() => setFlyToCart(true), 250);
+    setTimeout(() => {
+      setIsAddAnimating(false);
+      setFlyToCart(false);
+      onClose();
+    }, 900);
   };
 
   return (
-  <>
-    {/* BACKDROP */}
-    <div
-      className="fixed inset-0 z-[80] bg-black/80 force-dark-overlay backdrop-blur-sm transition-opacity"
-      onClick={onClose}
-    />
+    <>
+      {/* BACKDROP */}
+      <div
+        className={`fixed inset-0 z-[80] bg-black/80 force-dark-overlay backdrop-blur-sm transition-opacity duration-300 ${
+          isAddAnimating ? 'opacity-0' : 'opacity-100'
+        }`}
+        onClick={isAddAnimating ? undefined : onClose}
+      />
 
-    {/* MODAL CONTAINER */}
-    <div className="fixed inset-0 z-[90] flex items-end md:items-center justify-center">
-      <div className="bg-[#141414] w-full md:w-[480px] md:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-10 duration-300 border border-white/10">
-        {/* Header Image */}
-        <div className="relative h-48 md:h-56 shrink-0">
-          <img src={product.image_url || 'https://via.placeholder.com/400'} className="w-full h-full object-cover rounded-t-2xl mask-image-b" />
-           <div className="absolute top-4 right-4 flex items-center gap-2">
-            {onToggleFavorite && (
-              <button
-                onClick={onToggleFavorite}
-                className="md:hidden bg-black/50 p-2 rounded-full text-white backdrop-blur-md hover:bg-black/80 transition-colors"
-                aria-label="Toggle favorite"
-              >
-                <Heart size={16} fill={isFavorited ? 'currentColor' : 'none'} className={isFavorited ? 'text-rose-300' : ''} />
+      {/* MODAL CONTAINER */}
+      <div className="fixed inset-0 z-[90] flex items-end md:items-center justify-center pointer-events-none">
+        <div
+          className={`pointer-events-auto bg-[#141414] w-full md:w-[480px] md:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col max-h-[90vh] border border-white/10 transition-all duration-500 ${
+            isAddAnimating ? 'scale-[0.08] opacity-0 rounded-full' : 'animate-in slide-in-from-bottom-10 duration-300 scale-100 opacity-100'
+          }`}
+        >
+          {/* Header Image */}
+          <div className="relative h-48 md:h-56 shrink-0">
+            <img src={product.image_url || 'https://via.placeholder.com/400'} className="w-full h-full object-cover rounded-t-2xl mask-image-b" />
+            <div className="absolute top-4 right-4 flex items-center gap-2">
+              {onToggleFavorite && (
+                <button
+                  onClick={onToggleFavorite}
+                  className="md:hidden bg-black/50 p-2 rounded-full text-white backdrop-blur-md hover:bg-black/80 transition-colors"
+                  aria-label="Toggle favorite"
+                >
+                  <Heart size={16} fill={isFavorited ? 'currentColor' : 'none'} className={isFavorited ? 'text-rose-300' : ''} />
+                </button>
+              )}
+              <button onClick={onClose} className="bg-black/50 p-2 rounded-full text-white backdrop-blur-md hover:bg-black/80 transition-colors">
+                <X size={20} />
               </button>
-            )}
-            <button onClick={onClose} className="bg-black/50 p-2 rounded-full text-white backdrop-blur-md hover:bg-black/80 transition-colors">
-              <X size={20} />
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div>
+              <h2 className="text-2xl font-serif text-white">{product.name}</h2>
+              <div className="md:hidden mt-3 flex flex-wrap gap-2">
+                {product.is_recommended && (
+                  <span className="text-black text-[10px] font-bold tracking-widest uppercase bg-amber-200 px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
+                    <Sparkles size={10} /> Recommended
+                  </span>
+                )}
+                {product.is_bundle && (
+                  <span className="text-black text-[10px] font-bold tracking-widest uppercase bg-[#C5A572] px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
+                    <Package size={10} /> Bundle
+                  </span>
+                )}
+                {product.category && (
+                  <span className="text-white text-[10px] font-semibold tracking-widest uppercase bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full border border-white/20">
+                    {product.category}
+                  </span>
+                )}
+                {isMostFavorited && (
+                  <span className="text-white text-[10px] font-semibold bg-rose-500/90 px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
+                    <Heart size={10} fill="currentColor" /> Most loved {favoriteCount > 0 ? `(${favoriteCount})` : ''}
+                  </span>
+                )}
+              </div>
+              <p className="text-gray-400 text-sm mt-2 leading-relaxed">{product.description}</p>
+            </div>
+
+            <div className="h-px bg-white/5 w-full" />
+
+            {/* Modifiers List */}
+            {modifierGroups.map((mod: any) => (
+              <div key={mod.id} className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">{mod.name}</h3>
+                  {mod.isRequired && <span className="text-[10px] bg-[#C5A572]/20 text-black px-2 py-0.5 rounded border border-[#C5A572]/30">{t('product_modal_required')}</span>}
+                </div>
+
+                <div className="grid gap-2">
+                  {mod.options.map((opt: any) => {
+                    const isSelected = (selections[mod.id] || []).includes(opt.id);
+                    return (
+                      <div
+                        key={opt.id}
+                        onClick={() => toggleSelection(mod.id, opt.id, mod.type === 'single', mod.isRequired)}
+                        className={`flex justify-between items-center p-3 rounded-lg border cursor-pointer transition-all active:scale-[0.98] ${
+                          isSelected ? 'bg-[#C5A572]/10 border-[#C5A572] text-white' : 'bg-white/5 border-transparent hover:bg-white/10 text-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-[#C5A572] bg-[#C5A572]' : 'border-gray-500'}`}>
+                            {isSelected && <Check size={10} className="text-black" />}
+                          </div>
+                          <span className="text-sm font-medium text-black">{opt.name}</span>
+                        </div>
+                        {opt.price > 0 && <span className="text-xs text-[#C5A572] font-mono">+Rp {opt.price.toLocaleString()}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">{t('menu_product_note')}</h3>
+              <textarea
+                placeholder={t('menu_product_note_ph')}
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                className="w-full bg-gray-100 border border-gray-200 rounded-lg p-3 text-sm text-black focus:outline-none focus:border-[#C5A572] min-h-[80px]"
+              />
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-4 bg-[#141414] border-t border-white/10 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4 bg-white/5 rounded-lg p-1">
+                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-8 h-8 flex items-center justify-center text-white hover:bg-white/10 rounded"><Minus size={16} /></button>
+                <span className="font-mono text-white w-4 text-center">{quantity}</span>
+                <button onClick={() => setQuantity(quantity + 1)} className="w-8 h-8 flex items-center justify-center text-white hover:bg-white/10 rounded"><Plus size={16} /></button>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500 uppercase">Total</p>
+                <p className="text-lg font-bold text-[#C5A572] font-serif">Rp {totalPrice.toLocaleString()}</p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleAddToCart}
+              disabled={!isValid || isAddAnimating}
+              className={`w-full py-3 rounded-xl font-bold text-black flex items-center justify-center gap-2 transition-all ${
+                isValid ? 'bg-[#C5A572] hover:bg-[#b09366] active:scale-95' : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              <ShoppingBag size={18} />
+              {isValid ? t('product_modal_add_to_cart') : t('product_modal_required_options')}
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          <div>
-            <h2 className="text-2xl font-serif text-white">{product.name}</h2>
-            <div className="md:hidden mt-3 flex flex-wrap gap-2">
-              {product.is_recommended && (
-                <span className="text-black text-[10px] font-bold tracking-widest uppercase bg-amber-200 px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
-                  <Sparkles size={10} /> Recommended
-                </span>
-              )}
-              {product.is_bundle && (
-                <span className="text-black text-[10px] font-bold tracking-widest uppercase bg-[#C5A572] px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
-                  <Package size={10} /> Bundle
-                </span>
-              )}
-              {product.category && (
-                <span className="text-white text-[10px] font-semibold tracking-widest uppercase bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full border border-white/20">
-                  {product.category}
-                </span>
-              )}
-              {isMostFavorited && (
-                <span className="text-white text-[10px] font-semibold bg-rose-500/90 px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
-                  <Heart size={10} fill="currentColor" /> Most loved {favoriteCount > 0 ? `(${favoriteCount})` : ''}
-                </span>
-              )}
-            </div>
-            <p className="text-gray-400 text-sm mt-2 leading-relaxed">{product.description}</p>
-          </div>
-
-          <div className="h-px bg-white/5 w-full" />
-
-          {/* Modifiers List */}
-          {modifierGroups.map((mod: any) => (
-            <div key={mod.id} className="space-y-3">
-              <div className="flex justify-between items-center">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">{mod.name}</h3>
-                {mod.isRequired && <span className="text-[10px] bg-[#C5A572]/20 text-black px-2 py-0.5 rounded border border-[#C5A572]/30">{t('product_modal_required')}</span>}
-              </div>
-
-              <div className="grid gap-2">
-                {mod.options.map((opt: any) => {
-                  const isSelected = (selections[mod.id] || []).includes(opt.id);
-                  return (
-                    <div 
-                      key={opt.id}
-                      onClick={() =>toggleSelection(mod.id, opt.id, mod.type === 'single', mod.isRequired )}
-                      className={`flex justify-between items-center p-3 rounded-lg border cursor-pointer transition-all active:scale-[0.98] ${
-                        isSelected ? 'bg-[#C5A572]/10 border-[#C5A572] text-white' : 'bg-white/5 border-transparent hover:bg-white/10 text-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-[#C5A572] bg-[#C5A572]' : 'border-gray-500'}`}>
-                          {isSelected && <Check size={10} className="text-black" />}
-                        </div>
-                        <span className="text-sm font-medium text-black">{opt.name}</span>
-                      </div>
-                      {opt.price > 0 && <span className="text-xs text-[#C5A572] font-mono">+Rp {opt.price.toLocaleString()}</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-
-          {/* Notes */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">{t('menu_product_note')}</h3>
-            <textarea 
-              placeholder={t('menu_product_note_ph')}
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              className="w-full bg-gray-100 border border-gray-200 rounded-lg p-3 text-sm text-black focus:outline-none focus:border-[#C5A572] min-h-[80px]"
-            />
-          </div>
+      {isAddAnimating && (
+        <div
+          className={`fixed z-[120] flex items-center justify-center w-10 h-10 rounded-full bg-[#C5A572] text-black font-bold text-xs shadow-[0_0_25px_rgba(197,165,114,0.75)] transition-all duration-500 ${
+            flyToCart ? 'top-4 right-4 scale-75' : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-100'
+          }`}
+        >
+          +{quantity}
         </div>
-
-        {/* Footer */}
-        <div className="p-4 bg-[#141414] border-t border-white/10 space-y-4">
-          <div className="flex items-center justify-between">
-             <div className="flex items-center gap-4 bg-white/5 rounded-lg p-1">
-                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-8 h-8 flex items-center justify-center text-white hover:bg-white/10 rounded"><Minus size={16}/></button>
-                <span className="font-mono text-white w-4 text-center">{quantity}</span>
-                <button onClick={() => setQuantity(quantity + 1)} className="w-8 h-8 flex items-center justify-center text-white hover:bg-white/10 rounded"><Plus size={16}/></button>
-             </div>
-             <div className="text-right">
-                <p className="text-xs text-gray-500 uppercase">Total</p>
-                <p className="text-lg font-bold text-[#C5A572] font-serif">Rp {totalPrice.toLocaleString()}</p>
-             </div>
-          </div>
-
-          <button 
-            onClick={handleAddToCart}
-            disabled={!isValid}
-            className={`w-full py-3 rounded-xl font-bold text-black flex items-center justify-center gap-2 transition-all ${
-              isValid ? 'bg-[#C5A572] hover:bg-[#b09366] active:scale-95' : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            <ShoppingBag size={18} />
-            {isValid ? t('product_modal_add_to_cart') : t('product_modal_required_options')}
-          </button>
-        </div>
-            </div>
-    </div>
-  </>
-);
+      )}
+    </>
+  );
 }

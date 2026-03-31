@@ -57,7 +57,7 @@ export default function CartDrawer() {
   return (
     <>
       <div
-        className={`fixed inset-0 z-[60] flex justify-end transition-all duration-500 ${
+          className={`fixed inset-0 z-[60] flex items-end md:items-stretch md:justify-end transition-all duration-500 ${
           isCartOpen ? 'pointer-events-auto visibility-visible' : 'pointer-events-none invisible delay-300'
         }`}
       >
@@ -69,8 +69,8 @@ export default function CartDrawer() {
         />
 
         <div
-          className={`relative w-full md:w-[450px] bg-[#141414] shadow-2xl flex flex-col h-full transform transition-transform duration-300 ease-in-out ${
-            isCartOpen ? 'translate-x-0' : 'translate-x-full'
+          className={`relative w-full md:w-[450px] bg-[#141414] shadow-2xl flex flex-col h-[83.333vh] md:h-full rounded-t-2xl md:rounded-none transform transition-transform duration-300 ease-in-out ${
+            isCartOpen ? 'translate-y-0 md:translate-x-0' : 'translate-y-full md:translate-y-0 md:translate-x-full'
           }`}
         >
           <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#141414]">
@@ -88,7 +88,7 @@ export default function CartDrawer() {
               </div>
             ) : (
               cart.map((item) => (
-                <div key={item.cartId} className="flex gap-4 items-center animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div key={item.cartId} className="flex gap-3 sm:gap-4 items-start animate-in fade-in slide-in-from-bottom-2 duration-500">
                   <div className="hidden sm:block w-16 h-16 rounded-lg overflow-hidden border border-white/10 shrink-0">
                     <img src={item.image_url || 'https://via.placeholder.com/150'} className="w-full h-full object-cover" />
                   </div>
@@ -113,24 +113,26 @@ export default function CartDrawer() {
                       })}
                     {item.modifiers?.notes && <p className="text-[10px] text-gray-500 italic mt-1">{t('cart_note')}: {item.modifiers.notes}</p>}
                     <p className="text-[#C5A572] text-xs mt-0.5">Rp {(item.price * item.quantity).toLocaleString()}</p>
-                    <div className="flex items-center gap-2 mt-2">
+                    </div>
+                  <div className="shrink-0 flex flex-col items-center gap-2 pt-1">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => removeFromCart(item.cartId)}
-                        className="w-6 h-6 flex items-center justify-center bg-white/5 rounded text-white active:bg-white/20 hover:bg-white/10 transition-colors"
+                        className="w-8 h-8 flex items-center justify-center bg-white/5 rounded text-white active:bg-white/20 hover:bg-white/10 transition-colors"
                       >
-                        <Minus size={12} />
+                        <Minus size={14} />
                       </button>
-                      <span className="text-xs font-mono w-4 text-center text-white">{item.quantity}</span>
+                      <span className="text-sm font-mono w-6 text-center text-white">{item.quantity}</span>
                       <button
                         onClick={() => addToCart(item)}
-                        className="w-6 h-6 flex items-center justify-center bg-white/5 rounded text-white active:bg-white/20 hover:bg-white/10 transition-colors"
+                        className="w-8 h-8 flex items-center justify-center bg-white/5 rounded text-white active:bg-white/20 hover:bg-white/10 transition-colors"
                       >
-                        <Plus size={12} />
-                      </button>
-                      <button onClick={() => handleEditItem(item)} className="text-[10px] text-[#C5A572] hover:underline mt-2">
-                        {t('cart_edit')}
+                        <Plus size={14} />
                       </button>
                     </div>
+                    <button onClick={() => handleEditItem(item)} className="text-xs text-[#C5A572] hover:underline">
+                      {t('cart_edit')}
+                    </button>
                   </div>
                 </div>
               ))
