@@ -16,6 +16,7 @@ import PageSkeleton from '../components/common/PageSkeleton';
 import { useFeedback } from '../context/FeedbackContext';
 
 export default function Admin() {
+  const [isOnlineActive, setIsOnlineActive]= useState(true);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useFeedback();
@@ -28,7 +29,6 @@ export default function Admin() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   
-  // --- PRODUCT FORM STATE ---
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [bundleDiscountPercent, setBundleDiscountPercent] = useState<string>('0');
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null); 
@@ -49,12 +49,10 @@ export default function Admin() {
     is_bundle: false, bundle_items: [] 
   });
 
-  // Search State for Bundle Items
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
   const productSearchRef = useRef<HTMLDivElement>(null);
   
-  // --- PROMOTION FORM STATE ---
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
   const [newPromo, setNewPromo] = useState({
     code: '',
@@ -70,12 +68,10 @@ export default function Admin() {
     target_product_id: ''
   });
 
-  // Search State for Promotions
   const [promoSearchTerm, setPromoSearchTerm] = useState('');
   const [isPromoSearchOpen, setIsPromoSearchOpen] = useState(false);
   const promoSearchRef = useRef<HTMLDivElement>(null);
 
-  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalConfig, setModalConfig] = useState<{
     title: string;
@@ -87,6 +83,36 @@ export default function Admin() {
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [orderSearch, setOrderSearch] = useState('');
   const [productListSearch, setProductListSearch] = useState('');
+
+  useEffect(() => {
+    supabase.from('store_settings').select('is_online_active').eq('id', 1).single()
+      .then(({ data }) => {
+        if (data) setIsOnlineActive(data.is_online_active);
+      });
+  }, []);
+
+  useEffect(() => {
+    const sendHeartbeat = async () => {
+      await supabase
+        .from('store_settings')
+        .update({ cashier_last_seen: new Date().toISOString() })
+        .eq('id', 1);
+    };
+
+    sendHeartbeat(); 
+    const interval = setInterval(sendHeartbeat, 60000);
+
+    return () => clearInterval(interval); 
+  }, []);
+
+  const handleToggle = async () => {
+    const newState = !isOnlineActive;
+    setIsOnlineActive(newState);
+    await supabase
+      .from('store_settings')
+      .update({ is_online_active: newState })
+      .eq('id', 1);
+  };
 
   useEffect(() => {
     if (!user) navigate('/login');
@@ -527,11 +553,28 @@ export default function Admin() {
       />
 
       <div className="admin-container">
+
         {/* HEADER */}
         <div className="admin-header">
           <h1 className="admin-title">{t('admin_dashboard')}</h1>
           
           <div className="admin-controls">
+            
+            <button 
+              onClick={handleToggle}
+              className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${
+                isOnlineActive 
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30' 
+                  : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
+              }`}
+              title="Toggle Online Orders"
+            >
+              {isOnlineActive ? <Power size={16} /> : <PowerOff size={16} />}
+              <span className="hidden md:inline">
+                {isOnlineActive ? 'Online Orders: OPEN' : 'Online Orders: PAUSED'}
+              </span>
+            </button>
+
             <div className="admin-tab-group">
               {[
                 { id: 'orders', label: t('admin_tab_orders') },
