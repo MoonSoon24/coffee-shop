@@ -24,7 +24,7 @@ export async function checkOrderingAvailability(): Promise<boolean> {
     const differenceInMinutes = (currentTime - lastSeenTime) / (1000 * 60);
 
     // If we haven't heard from the cashier in 5 minutes, close the store
-    if (differenceInMinutes > 5) {
+    if (differenceInMinutes > 2) {
       console.warn("Store automatically closed: Cashier device unreachable.");
       return false;
     }
