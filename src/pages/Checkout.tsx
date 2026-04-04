@@ -23,14 +23,14 @@ const MIDTRANS_SNAP_URL = IS_MIDTRANS_PRODUCTION
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { cart, cartTotal, clearCart, cartCount } = useCart();
+  const { cart, cartTotal, clearCart, cartCount, tableNumber } = useCart();
   const { user } = useAuth();
   const { showToast } = useFeedback();
   const { t } = useLanguage();
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [orderType, setOrderType] = useState<'delivery' | 'takeaway'>('takeaway');
+  const [orderType, setOrderType] = useState<'delivery' | 'takeaway' | 'dine_in'>(tableNumber ? 'dine_in' : 'takeaway');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [mapsLink, setMapsLink] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
@@ -67,6 +67,12 @@ export default function Checkout() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (tableNumber) {
+      setOrderType('dine_in');
+    }
+  }, [tableNumber]);
   
   useEffect(() => {
     if (cart.length === 0 && !isSubmitting) {
@@ -272,56 +278,74 @@ export default function Checkout() {
     }
 
     try {
-      const customOrderId = generateOrderId();
       setIsSubmitting(true);
+      let masterOrderId: number | null = null;
 
-      const { error: orderError } = await supabase
-        .from('orders')
-        .insert([
-          {
-            id: customOrderId,
-            customer_name: customerName,
-            customer_phone: customerPhone,
-            address: orderType === 'delivery' ? deliveryAddress : null,
-            maps_link: orderType === 'delivery' ? mapsLink : null,
-            type: orderType,
-            notes: orderNotes || null,
-            subtotal: cartTotal,
-            discount_total: discountAmount + pointsToUse,
-            total_price: finalTotal,
-            promo_code_used: appliedPromo?.code || null,
-            points_used: user ? pointsToUse : 0,
-            status: 'pending',
-            user_id: user?.id || null,
-          },
-        ]);
+      if (orderType === 'dine_in' && tableNumber) {
+        const { data: existingOrder, error: fetchError } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('table_number', tableNumber)
+          .eq('session_status', 'open')
+          .maybeSingle();
 
-      if (orderError) throw orderError;
+        if (existingOrder) {
+          masterOrderId = existingOrder.id;
+        }
+      }
 
-      // FIX 2: ALWAYS save local guest order access (even if user is logged in).
-      // This guarantees the user's browser instantly has access to view the order without 
-      // waiting for Supabase `user` context to rehydrate if Midtrans triggers a hard redirect.
-      saveGuestOrderAccess(customOrderId, customerPhone);
+      if (!masterOrderId) {
+        masterOrderId = generateOrderId();
+        const { error: orderError } = await supabase
+          .from('orders')
+          .insert([
+            {
+              id: masterOrderId,
+              customer_name: customerName,
+              customer_phone: customerPhone,
+              address: orderType === 'delivery' ? deliveryAddress : null,
+              maps_link: orderType === 'delivery' ? mapsLink : null,
+              type: orderType,
+              table_number: orderType === 'dine_in' ? tableNumber : null,
+              session_status: orderType === 'dine_in' ? 'open' : 'closed',
+              notes: orderNotes || null,
+              subtotal: cartTotal,
+              discount_total: discountAmount + pointsToUse,
+              total_price: finalTotal,
+              promo_code_used: appliedPromo?.code || null,
+              points_used: user ? pointsToUse : 0,
+              status: 'pending',
+              user_id: user?.id || null,
+            },
+          ]);
 
-      const orderId = customOrderId;
+        if (orderError) throw orderError;
+      }
+
+      saveGuestOrderAccess(masterOrderId, customerPhone);
+
       const orderItemsData = cart.map((item) => ({
-        order_id: orderId,
+        order_id: masterOrderId,
         product_id: item.id,
         price_at_time: item.price,
         quantity: item.quantity,
         notes: item.modifiers?.notes || null,
         modifiers: item.modifiers?.selections || null,
+        payment_status: 'unpaid', 
       }));
 
       const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData);
       if (itemsError) throw itemsError;
+
+      const paymentTransactionId = `${masterOrderId}-${Date.now()}`;
 
       const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-midtrans-transaction', {
         headers: {
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
         },
         body: {
-          order_id: customOrderId,
+          transaction_id: paymentTransactionId,
+          master_order_id: masterOrderId,
           gross_amount: finalTotal,
           customer_name: customerName,
           customer_phone: customerPhone,
@@ -336,25 +360,31 @@ export default function Checkout() {
 
       window.snap.pay(edgeData.token, {
         onSuccess: async (_result: any) => {
-          await supabase.from('orders').update({ status: 'paid' }).eq('id', customOrderId);
+          await supabase
+            .from('order_items')
+            .update({ payment_status: 'paid' })
+            .eq('order_id', masterOrderId)
+            .eq('payment_status', 'unpaid');
+            
+          await supabase.from('orders').update({ status: 'paid' }).eq('id', masterOrderId);
+          
           showToast(t('checkout_payment_success'), 'success');
           clearCart();
-          navigate(`/orders/${customOrderId}`, { replace: true });
+          navigate(`/orders/${masterOrderId}`, { replace: true });
         },
         onPending: (_result: any) => {
           showToast(t('checkout_payment_waiting'), 'info');
           clearCart();
-          navigate(`/orders/${customOrderId}`, { replace: true });
+          navigate(`/orders/${masterOrderId}`, { replace: true });
         },
         onError: async (_result: any) => {
-          await supabase.from('orders').update({ status: 'cancelled' }).eq('id', customOrderId);
           showToast(t('checkout_payment_failed'), 'error');
           setIsSubmitting(false);
         },
         onClose: async () => {
           clearCart();
           showToast("Payment paused. You can complete it from the order detail.", 'info');
-          navigate(`/orders/${customOrderId}`, { replace: true });
+          navigate(`/orders/${masterOrderId}`, { replace: true });
         }
       });
     } catch (e: any) {
@@ -398,10 +428,21 @@ export default function Checkout() {
             <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder={t('checkout_your_name')} className="w-full rounded-xl border border-slate-200 px-4 py-2.5" />
             <input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder={t('checkout_whatsapp')} className="w-full rounded-xl border border-slate-200 px-4 py-2.5" />
 
-            <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 p-1">
+            <div className="grid grid-cols-3 gap-2 rounded-xl border border-slate-200 p-1 mb-2">
+              <button type="button" onClick={() => setOrderType('dine_in')} className={`py-2 rounded-lg text-sm ${orderType === 'dine_in' ? 'bg-[#C5A572] text-black font-semibold' : 'text-slate-600'}`}>Dine-In</button>
               <button type="button" onClick={() => setOrderType('takeaway')} className={`py-2 rounded-lg text-sm ${orderType === 'takeaway' ? 'bg-[#C5A572] text-black font-semibold' : 'text-slate-600'}`}>{t('checkout_takeaway')}</button>
               <button type="button" onClick={() => setOrderType('delivery')} className={`py-2 rounded-lg text-sm ${orderType === 'delivery' ? 'bg-[#C5A572] text-black font-semibold' : 'text-slate-600'}`}>{t('checkout_delivery')}</button>
             </div>
+
+            {orderType === 'dine_in' && (
+              <div className="space-y-2 mb-2 bg-amber-50 p-4 rounded-xl border border-amber-200">
+                <p className="text-sm font-medium text-amber-900 flex items-center justify-between">
+                  <span>Ordering for Table:</span>
+                  <span className="text-xl font-bold ml-2">{tableNumber || 'Unknown'}</span>
+                </p>
+                <p className="text-xs text-amber-700">We will bring your order directly to your table. You can keep ordering here as long as you are seated.</p>
+              </div>
+            )}
 
             {orderType === 'delivery' && (
               <div className="space-y-2">

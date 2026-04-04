@@ -502,6 +502,20 @@ export default function OrderDetail() {
               </div>
             </div>
 
+            {order.type === 'dine-in' && order.session_status === 'open' && (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <p className="text-sm text-amber-800 mb-3 font-medium">
+                  Your table session is open! You can continue ordering items to Table {order.table_number}.
+                </p>
+                <button 
+                  onClick={() => navigate(`/menu?table=${order.table_number}`)}
+                  className="w-full bg-[#C5A572] text-black font-semibold py-3 rounded-xl"
+                >
+                  Order More Items
+                </button>
+              </div>
+            )}
+
             {order.status === 'pending' && order.payment_token && (
               <div className="mb-8 p-6 bg-amber-50 border border-amber-200 rounded-2xl text-center shadow-sm relative overflow-hidden">
                 

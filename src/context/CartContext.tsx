@@ -1,8 +1,7 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import type { Product } from '../types';
-import type { ReactNode} from 'react';
+import type { ReactNode } from 'react';
 
-// Extend the Product type to include Cart-specific fields
 interface CartItem extends Product {
   cartId: string;
   quantity: number;
@@ -14,8 +13,6 @@ interface CartItem extends Product {
   modifiersData?: any[];
 }
 
-
-
 interface CartContextType {
   cart: CartItem[];
   addToCart: (product: Product, quantity?: number, options?: { openCart?: boolean }) => void;
@@ -25,7 +22,9 @@ interface CartContextType {
   cartCount: number;
   isCartOpen: boolean;
   setIsCartOpen: (isOpen: boolean) => void;
-  onSelect: (product: Product) => void; // For opening the modal
+  onSelect: (product: Product) => void;
+  tableNumber: string | null;
+  setTableNumber: (table: string | null) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -34,14 +33,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // Helper to generate a unique ID based on options
-  // This ensures "Latte (Oat Milk)" and "Latte (Almond Milk)" are separate rows
+  const [tableNumber, setTableNumber] = useState<string | null>(
+    sessionStorage.getItem('tableNumber') || null
+  );
+
+  useEffect(() => {
+    if (tableNumber) {
+      sessionStorage.setItem('tableNumber', tableNumber);
+    } else {
+      sessionStorage.removeItem('tableNumber');
+    }
+  }, [tableNumber]);
+
   const generateCartId = (product: Product, selections: Record<string, string[]> = {}) => {
     const baseId = product.id;
     const selectionString = JSON.stringify(selections);
     return `${baseId}-${selectionString}`;
   };
-
 
   const addToCart = (product: Product, quantity: number = 1, options: { openCart?: boolean } = {}) => {
     setCart((prevCart) => {
@@ -95,14 +103,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCart([]);
   };
 
-  // Calculate totals
   const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
 
-  // Placeholder function if you need to trigger the modal from outside
   const onSelect = (product: Product) => {
-     // This logic is usually handled in the Menu page state, 
-     // but we keep the type definition here for compatibility.
      console.log("Product selected:", product.name);
   };
 
@@ -117,7 +121,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         cartCount,
         isCartOpen,
         setIsCartOpen,
-        onSelect
+        onSelect,
+        tableNumber,
+        setTableNumber
       }}
     >
       {children}

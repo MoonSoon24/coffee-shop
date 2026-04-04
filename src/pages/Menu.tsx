@@ -8,7 +8,7 @@ import ProductModal from '../components/menu/ProductModal';
 import { useCart } from '../context/CartContext';
 import PageSkeleton from '../components/common/PageSkeleton';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 
 type SortOption = 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc' | 'popular';
@@ -23,11 +23,20 @@ export default function Menu() {
   const [favoriteCounts, setFavoriteCounts] = useState<Record<number, number>>({});
   const [myFavorites, setMyFavorites] = useState<number[]>([]);
 
-  const { cartCount, cartTotal, setIsCartOpen } = useCart();
+  const [searchParams] = useSearchParams();
+  const { cartCount, cartTotal, setIsCartOpen, setTableNumber } = useCart();
   const { user } = useAuth();
   const { showToast } = useFeedback();
-    const { t } = useLanguage();
+  const { t } = useLanguage();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const tableParam = searchParams.get('table');
+    if (tableParam) {
+      setTableNumber(tableParam);
+      showToast(`${t('menu_welcome_table') || 'Welcome! You are seated at Table'} ${tableParam}`, 'info');
+    }
+  }, [searchParams, setTableNumber, showToast, t]);
 
   const getProductsAndFavorites = async () => {
     setLoading(true);

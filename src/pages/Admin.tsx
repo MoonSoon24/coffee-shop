@@ -33,6 +33,9 @@ export default function Admin() {
   const [bundleDiscountPercent, setBundleDiscountPercent] = useState<string>('0');
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null); 
 
+  const [activeTickets, setActiveTickets] = useState<any[]>([]);
+  const [orderView, setOrderView] = useState<'tickets' | 'history'>('tickets');
+
   const [isModifierModalOpen, setIsModifierModalOpen] = useState(false);
   const [currentProductForModifiers, setCurrentProductForModifiers] = useState<Product | null>(null);
 
@@ -114,6 +117,65 @@ export default function Admin() {
       .eq('id', 1);
   };
 
+  const fetchActiveTickets = async () => {
+  // Fetch items that are paid but haven't been completed/served yet
+  const { data, error } = await supabase
+    .from('order_items')
+    .select(`
+      id,
+      quantity,
+      price_at_time,
+      modifiers,
+      notes,
+      batch_id,
+      payment_status,
+      created_at,
+      product:products ( name ),
+      order:orders ( id, customer_name, type, table_number, session_status )
+    `)
+    .eq('payment_status', 'paid')
+    // You might need an 'item_status' (e.g., 'preparing', 'served') 
+    // to filter out items they already made.
+    .order('created_at', { ascending: true });
+
+  if (!error && data) {
+    // Group the items by batch_id so the UI shows 1 Card per Batch
+    const groupedBatches = data.reduce((acc: any, item: any) => {
+      if (!acc[item.batch_id]) {
+        acc[item.batch_id] = {
+          batchId: item.batch_id,
+          orderInfo: item.order,
+          time: item.created_at,
+          items: []
+        };
+      }
+      acc[item.batch_id].items.push(item);
+      return acc;
+    }, {});
+    
+    return Object.values(groupedBatches);
+  }
+}
+
+const closeTableSession = async (orderId: number, tableNumber: string) => {
+  const confirm = window.confirm(`Close session for Table ${tableNumber}?`);
+  if (!confirm) return;
+
+  const { error } = await supabase
+    .from('orders')
+    .update({ 
+      session_status: 'closed',
+      status: 'completed' // Or whatever your final status is
+    })
+    .eq('id', orderId);
+
+  if (!error) {
+    showToast(`Table ${tableNumber} is now closed and ready for the next customer.`, 'success');
+    // Refresh your admin data here
+  }
+};
+
+
   useEffect(() => {
     if (!user) navigate('/login');
     fetchData();
@@ -192,6 +254,10 @@ export default function Admin() {
     }
     
     if (ord) setOrders(ord);
+    
+    const tickets = await fetchActiveTickets();
+    if (tickets) setActiveTickets(tickets);
+
     if (promos) setPromotions(promos as Promotion[]);
     if (prod) {
       // @ts-ignore
@@ -601,54 +667,140 @@ export default function Admin() {
         {/* --- ORDERS TAB --- */}
         {activeTab === 'orders' && (
           <div className="admin-grid-orders">
-            <div className="mb-3">
-              <input
-                value={orderSearch}
-                onChange={(e) => setOrderSearch(e.target.value)}
-                placeholder={t('admin_orders_search')}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
-              />
+            
+            {/* View Toggle & Search */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4">
+              <div className="flex bg-black/40 p-1 rounded-lg border border-white/10 w-full md:w-auto">
+                <button 
+                  onClick={() => setOrderView('tickets')} 
+                  className={`flex-1 md:flex-none px-4 py-2 text-sm font-bold rounded transition-colors ${orderView === 'tickets' ? 'bg-[#C5A572] text-black' : 'text-gray-400 hover:text-white'}`}
+                >
+                  Kitchen Tickets
+                </button>
+                <button 
+                  onClick={() => setOrderView('history')} 
+                  className={`flex-1 md:flex-none px-4 py-2 text-sm font-bold rounded transition-colors ${orderView === 'history' ? 'bg-[#C5A572] text-black' : 'text-gray-400 hover:text-white'}`}
+                >
+                  All Orders History
+                </button>
+              </div>
+
+              {orderView === 'history' && (
+                <input
+                  value={orderSearch}
+                  onChange={(e) => setOrderSearch(e.target.value)}
+                  placeholder={t('admin_orders_search')}
+                  className="w-full md:w-64 rounded-xl border border-white/10 bg-black/40 px-4 py-2 text-sm text-white focus:border-[#C5A572] outline-none"
+                />
+              )}
             </div>
 
             {loading ? (
               <PageSkeleton rows={5} />
-            ) : filteredOrders.length === 0 ? (
-               <p className="text-gray-500 text-center py-10">{t('admin_orders_empty')}</p>
-            ) : (
-              filteredOrders.map(order => (
-                <div key={order.id} className="admin-card cursor-pointer" onClick={() => setSelectedOrder(order)}>
-                  <div>
-                    <h3 className="text-white font-bold">{order.customer_name} <span className="text-xs font-normal text-gray-500">#{order.id}</span></h3>
-                    <p className="text-sm text-gray-400 mb-1">{t('admin_orders_type')} <span className="text-white/90 uppercase">{order.type || 'takeaway'}</span></p>
-                    <p className="text-sm text-gray-400 mb-1">{t('admin_orders_total')} <span className="text-[#C5A572]">Rp {order.total_price.toLocaleString()}</span></p>
-                    {order.type === 'delivery' && (
-                      <div className="text-xs text-gray-500 mb-2">
-                        <p className="truncate">{t('admin_orders_address')} {order.address || '-'}</p>
-                        {order.maps_link && <a href={order.maps_link} target="_blank" onClick={(e) => e.stopPropagation()} className="text-[#C5A572] hover:underline" rel="noreferrer">{t('admin_orders_view_map')}</a>}
+            ) : orderView === 'tickets' ? (
+              
+              /* --- KITCHEN TICKETS VIEW --- */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {activeTickets.length === 0 ? (
+                  <p className="text-gray-500 text-center py-10 col-span-full">No active tickets to prepare.</p>
+                ) : (
+                  activeTickets.map(ticket => (
+                    <div key={ticket.batchId} className="bg-[#1a1a1a] border border-[#C5A572]/30 rounded-xl p-4 shadow-lg flex flex-col h-full">
+                      <div className="flex justify-between items-start mb-3 border-b border-white/10 pb-3">
+                        <div>
+                          {ticket.orderInfo?.type === 'dine-in' ? (
+                            <div className="bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full text-sm font-bold border border-amber-500/30 inline-block mb-1">
+                              DINE IN - TABLE {ticket.orderInfo.table_number}
+                            </div>
+                          ) : (
+                            <div className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-sm font-bold border border-blue-500/30 inline-block mb-1 uppercase">
+                              {ticket.orderInfo?.type || 'Takeaway'}
+                            </div>
+                          )}
+                          <h3 className="text-white font-medium text-lg mt-1">{ticket.orderInfo?.customer_name}</h3>
+                          <p className="text-xs text-gray-400">Time: {new Date(ticket.time).toLocaleTimeString()}</p>
+                        </div>
                       </div>
-                    )}
-                    <ul className="text-sm text-gray-500 space-y-1">
-                      {order.order_items.map((item: any) => (
-                        <li key={item.id}>- {item.products?.name} (x{item.quantity})</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="flex flex-col gap-2 min-w-[120px]">
-                    {order.type === 'delivery'}
-                    <select 
-                      value={order.status}
-                      onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="admin-select"
-                    >
-                      <option value="pending">{t('admin_status_pending')}</option>
-                      <option value="assigned">{t('admin_status_assigned')}</option>
-                      <option value="completed">{t('admin_status_completed')}</option>
-                      <option value="cancelled">{t('admin_status_cancelled')}</option>
-                    </select>
-                  </div>
-                </div>
-              ))
+
+                      <div className="flex-1">
+                        <ul className="space-y-3">
+                          {ticket.items.map((item: any) => (
+                            <li key={item.id} className="text-gray-300 text-sm">
+                              <span className="text-[#C5A572] font-bold mr-2">{item.quantity}x</span> 
+                              <span className="font-medium text-white">{item.product?.name}</span>
+                              
+                              {/* Display Modifiers if any */}
+                              {item.modifiers && Object.keys(item.modifiers).length > 0 && (
+                                <div className="text-xs text-gray-500 pl-6 mt-1 italic">
+                                  + Customizations attached
+                                </div>
+                              )}
+                              {item.notes && (
+                                <div className="text-xs text-amber-500/80 pl-6 mt-1 bg-amber-500/10 p-1 rounded">
+                                  Note: {item.notes}
+                                </div>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="mt-4 pt-4 border-t border-white/10 flex gap-2">
+                        {ticket.orderInfo?.type === 'dine-in' && ticket.orderInfo?.session_status === 'open' && (
+                          <button 
+                            onClick={() => closeTableSession(ticket.orderInfo.id, ticket.orderInfo.table_number)}
+                            className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 py-2 rounded-lg text-sm font-bold transition-colors"
+                          >
+                            Close Table
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              
+            ) : (
+              
+              /* --- ALL ORDERS HISTORY VIEW (Your original view) --- */
+              <div className="space-y-3">
+                {filteredOrders.length === 0 ? (
+                  <p className="text-gray-500 text-center py-10">{t('admin_orders_empty')}</p>
+                ) : (
+                  filteredOrders.map(order => (
+                    <div key={order.id} className="admin-card cursor-pointer" onClick={() => setSelectedOrder(order)}>
+                      <div>
+                        <h3 className="text-white font-bold">{order.customer_name} <span className="text-xs font-normal text-gray-500">#{order.id}</span></h3>
+                        <p className="text-sm text-gray-400 mb-1">
+                          {t('admin_orders_type')} <span className="text-white/90 uppercase">{order.type || 'takeaway'}</span>
+                          {order.type === 'dine-in' && <span className="ml-2 text-amber-400">(Table {order.table_number})</span>}
+                        </p>
+                        <p className="text-sm text-gray-400 mb-1">{t('admin_orders_total')} <span className="text-[#C5A572]">Rp {order.total_price.toLocaleString()}</span></p>
+                        <ul className="text-sm text-gray-500 space-y-1 mt-2">
+                          {order.order_items.map((item: any) => (
+                            <li key={item.id}>- {item.products?.name} (x{item.quantity})</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="flex flex-col gap-2 min-w-[120px]">
+                        <select 
+                          value={order.status}
+                          onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="admin-select"
+                        >
+                          <option value="pending">{t('admin_status_pending')}</option>
+                          <option value="paid">Paid</option>
+                          <option value="assigned">{t('admin_status_assigned')}</option>
+                          <option value="completed">{t('admin_status_completed')}</option>
+                          <option value="cancelled">{t('admin_status_cancelled')}</option>
+                        </select>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             )}
           </div>
         )}
