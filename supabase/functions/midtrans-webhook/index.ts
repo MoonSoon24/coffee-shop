@@ -123,9 +123,28 @@ serve(async (req) => {
 
     if (paymentUpdateError) throw paymentUpdateError;
 
+    const { data: orderRow, error: orderLookupError } = await supabase
+      .from('orders')
+      .select('id, type')
+      .eq('id', payment.master_order_id)
+      .maybeSingle();
+
+    if (orderLookupError) throw orderLookupError;
+    if (!orderRow) {
+      return new Response(JSON.stringify({ error: 'Master order not found' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 404,
+      });
+    }
+
+    const targetOrderStatus =
+      nextStatus === 'paid' && orderRow.type === 'dine_in'
+        ? 'active'
+        : nextStatus;
+
     const { error: orderStatusError } = await supabase
       .from('orders')
-      .update({ status: nextStatus })
+      .update({ status: targetOrderStatus })
       .eq('id', payment.master_order_id);
 
     if (orderStatusError) throw orderStatusError;

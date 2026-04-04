@@ -370,15 +370,33 @@ export default function Checkout() {
       window.snap.pay(edgeData.token, {
         onSuccess: async (_result: any) => {
           const createdItemIds = (insertedItems || []).map((item) => item.id);
+          const paidBatchId = crypto.randomUUID();
 
           if (createdItemIds.length > 0) {
-            await supabase
+            const { error: itemPaidError } = await supabase
               .from('order_items')
-              .update({ payment_status: 'paid' })
+              .update({ payment_status: 'paid', batch_id: paidBatchId })
               .in('id', createdItemIds);
+            if (itemPaidError) {
+              console.error('Failed to mark just-paid items as paid:', itemPaidError);
+            }
           }
-            
-          await supabase.from('orders').update({ status: 'paid' }).eq('id', masterOrderId);
+
+          const { error: paymentStatusError } = await supabase
+            .from('payments')
+            .update({ status: 'paid' })
+            .eq('midtrans_transaction_id', paymentTransactionId);
+          if (paymentStatusError) {
+            console.error('Failed to set payment status to paid:', paymentStatusError);
+          }
+
+          const { error: orderStatusError } = await supabase
+            .from('orders')
+            .update({ status: orderType === 'dine_in' ? 'active' : 'paid' })
+            .eq('id', masterOrderId);
+          if (orderStatusError) {
+            console.error('Failed to update order status after payment success:', orderStatusError);
+          }
           
           showToast(t('checkout_payment_success'), 'success');
           clearCart();
