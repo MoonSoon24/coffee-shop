@@ -289,6 +289,12 @@ export default function Checkout() {
           .eq('session_status', 'open')
           .maybeSingle();
 
+        // 1. Actually use the fetchError variable!
+        if (fetchError) {
+          console.error("Error fetching existing open tab:", fetchError);
+          // Optional: You could also show a toast here to warn the user
+        }
+
         if (existingOrder) {
           masterOrderId = existingOrder.id;
         }
