@@ -502,7 +502,7 @@ export default function OrderDetail() {
               </div>
             </div>
 
-            {order.type === 'dine-in' && order.session_status === 'open' && (
+            {order.type === 'dine_in' && order.session_status === 'open' && (
               <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                 <p className="text-sm text-amber-800 mb-3 font-medium">
                   Your table session is open! You can continue ordering items to Table {order.table_number}.

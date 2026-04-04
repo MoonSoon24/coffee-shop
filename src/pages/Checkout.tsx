@@ -291,8 +291,8 @@ export default function Checkout() {
 
         // 1. Actually use the fetchError variable!
         if (fetchError) {
-          console.error("Error fetching existing open tab:", fetchError);
-          // Optional: You could also show a toast here to warn the user
+          console.error('Error fetching existing open tab:', fetchError);
+          throw new Error('Failed to check open table session. Please try again.');
         }
 
         if (existingOrder) {
@@ -340,7 +340,10 @@ export default function Checkout() {
         payment_status: 'unpaid', 
       }));
 
-      const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData);
+      const { data: insertedItems, error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItemsData)
+        .select('id');
       if (itemsError) throw itemsError;
 
       const paymentTransactionId = `${masterOrderId}-${Date.now()}`;
@@ -366,11 +369,14 @@ export default function Checkout() {
 
       window.snap.pay(edgeData.token, {
         onSuccess: async (_result: any) => {
-          await supabase
-            .from('order_items')
-            .update({ payment_status: 'paid' })
-            .eq('order_id', masterOrderId)
-            .eq('payment_status', 'unpaid');
+          const createdItemIds = (insertedItems || []).map((item) => item.id);
+
+          if (createdItemIds.length > 0) {
+            await supabase
+              .from('order_items')
+              .update({ payment_status: 'paid' })
+              .in('id', createdItemIds);
+          }
             
           await supabase.from('orders').update({ status: 'paid' }).eq('id', masterOrderId);
           

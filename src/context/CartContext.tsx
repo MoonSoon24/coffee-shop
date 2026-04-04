@@ -1,31 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import type { Product } from '../types';
+import type { CartContextType, CartItem, Product } from '../types';
 import type { ReactNode } from 'react';
-
-interface CartItem extends Product {
-  cartId: string;
-  quantity: number;
-  basePrice: number;
-  modifiers?: {
-    selections: Record<string, string[]>;
-    notes: string;
-  };
-  modifiersData?: any[];
-}
-
-interface CartContextType {
-  cart: CartItem[];
-  addToCart: (product: Product, quantity?: number, options?: { openCart?: boolean }) => void;
-  removeFromCart: (cartId: string) => void;
-  clearCart: () => void;
-  cartTotal: number;
-  cartCount: number;
-  isCartOpen: boolean;
-  setIsCartOpen: (isOpen: boolean) => void;
-  onSelect: (product: Product) => void;
-  tableNumber: string | null;
-  setTableNumber: (table: string | null) => void;
-}
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 

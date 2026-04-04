@@ -44,6 +44,7 @@ export interface PromotionTarget {
 export interface CartItem extends Product {
   cartId: string;
   quantity: number;
+  basePrice?: number;
 
   modifiers?: {
     selections: Record<string, string[]>;
@@ -51,6 +52,45 @@ export interface CartItem extends Product {
   };
 
   modifiersData?: any[];
+}
+
+export interface Order {
+  id: number;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  type?: 'delivery' | 'takeaway' | 'dine_in' | null;
+  status?: string | null;
+  table_number?: string | null;
+  session_status?: 'open' | 'closed' | null;
+  total_price?: number | null;
+  created_at?: string | null;
+}
+
+export interface OrderItem {
+  id: number;
+  order_id: number;
+  product_id?: number | null;
+  quantity: number;
+  price_at_time: number;
+  notes?: string | null;
+  modifiers?: Record<string, string[]> | null;
+  payment_status?: 'paid' | 'unpaid' | null;
+  batch_id?: string | null;
+  created_at?: string | null;
+}
+
+export interface CartContextType {
+  cart: CartItem[];
+  addToCart: (product: Product, quantity?: number, options?: { openCart?: boolean }) => void;
+  removeFromCart: (cartId: string) => void;
+  clearCart: () => void;
+  cartTotal: number;
+  cartCount: number;
+  isCartOpen: boolean;
+  setIsCartOpen: (isOpen: boolean) => void;
+  onSelect: (product: Product) => void;
+  tableNumber: string | null;
+  setTableNumber: (table: string | null) => void;
 }
 
 export type ModifierOption = {

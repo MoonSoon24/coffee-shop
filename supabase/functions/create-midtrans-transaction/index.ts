@@ -17,10 +17,10 @@ serve(async (req) => {
   }
 
   try {
-    const { order_id, gross_amount, customer_name, customer_phone } = await req.json();
+    const { transaction_id, master_order_id, gross_amount, customer_name, customer_phone } = await req.json();
 
-    if (!order_id || !gross_amount) {
-      return new Response(JSON.stringify({ error: 'order_id and gross_amount are required' }), {
+    if (!transaction_id || !master_order_id || !gross_amount) {
+      return new Response(JSON.stringify({ error: 'transaction_id, master_order_id, and gross_amount are required' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       });
@@ -45,7 +45,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         transaction_details: {
-          order_id: order_id.toString(),
+          order_id: transaction_id.toString(),
           gross_amount,
         },
         customer_details: {
@@ -68,25 +68,31 @@ serve(async (req) => {
       });
     }
 
-    // --- NEW: Save the payment_token to Supabase database ---
-    
-    // Create Supabase client using the SERVICE ROLE KEY to bypass RLS
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Update the specific order in the 'orders' table
-    const { error: dbError } = await supabase
+    const { error: paymentInsertError } = await supabase
+      .from('payments')
+      .insert({
+        master_order_id,
+        midtrans_transaction_id: transaction_id.toString(),
+        amount: gross_amount,
+        status: 'pending',
+      });
+
+    if (paymentInsertError) {
+      throw paymentInsertError;
+    }
+
+    const { error: orderUpdateError } = await supabase
       .from('orders')
       .update({ payment_token: data.token })
-      .eq('id', order_id);
+      .eq('id', master_order_id);
 
-    if (dbError) {
-      console.error('Failed to save payment_token to the database:', dbError);
-      // We log the error but still return the token to the client so the user isn't completely blocked
+    if (orderUpdateError) {
+      console.error('Failed to save payment_token to the database:', orderUpdateError);
     }
-    // --------------------------------------------------------
 
     return new Response(JSON.stringify({ token: data.token, redirect_url: data.redirect_url }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -141,20 +141,27 @@ export default function Admin() {
   if (!error && data) {
     // Group the items by batch_id so the UI shows 1 Card per Batch
     const groupedBatches = data.reduce((acc: any, item: any) => {
-      if (!acc[item.batch_id]) {
-        acc[item.batch_id] = {
-          batchId: item.batch_id,
+       const key = item.batch_id || `legacy-${item.order?.id}-${item.created_at}`;
+      if (!acc[key]) {
+        acc[key] = {
+          batchId: key,
           orderInfo: item.order,
           time: item.created_at,
           items: []
         };
       }
-      acc[item.batch_id].items.push(item);
+      acc[key].items.push(item);
       return acc;
     }, {});
     
     return Object.values(groupedBatches);
   }
+
+  if (error) {
+    console.error('Error fetching active tickets:', error);
+  }
+
+  return [];
 }
 
 const closeTableSession = async (orderId: number, tableNumber: string) => {
@@ -171,7 +178,7 @@ const closeTableSession = async (orderId: number, tableNumber: string) => {
 
   if (!error) {
     showToast(`Table ${tableNumber} is now closed and ready for the next customer.`, 'success');
-    // Refresh your admin data here
+    fetchData();
   }
 };
 
@@ -708,7 +715,7 @@ const closeTableSession = async (orderId: number, tableNumber: string) => {
                     <div key={ticket.batchId} className="bg-[#1a1a1a] border border-[#C5A572]/30 rounded-xl p-4 shadow-lg flex flex-col h-full">
                       <div className="flex justify-between items-start mb-3 border-b border-white/10 pb-3">
                         <div>
-                          {ticket.orderInfo?.type === 'dine-in' ? (
+                          {ticket.orderInfo?.type === 'dine_in' ? (
                             <div className="bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full text-sm font-bold border border-amber-500/30 inline-block mb-1">
                               DINE IN - TABLE {ticket.orderInfo.table_number}
                             </div>
@@ -747,7 +754,7 @@ const closeTableSession = async (orderId: number, tableNumber: string) => {
 
                       {/* Action Buttons */}
                       <div className="mt-4 pt-4 border-t border-white/10 flex gap-2">
-                        {ticket.orderInfo?.type === 'dine-in' && ticket.orderInfo?.session_status === 'open' && (
+                        {ticket.orderInfo?.type === 'dine_in' && ticket.orderInfo?.session_status === 'open' && (
                           <button 
                             onClick={() => closeTableSession(ticket.orderInfo.id, ticket.orderInfo.table_number)}
                             className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 py-2 rounded-lg text-sm font-bold transition-colors"
@@ -774,7 +781,7 @@ const closeTableSession = async (orderId: number, tableNumber: string) => {
                         <h3 className="text-white font-bold">{order.customer_name} <span className="text-xs font-normal text-gray-500">#{order.id}</span></h3>
                         <p className="text-sm text-gray-400 mb-1">
                           {t('admin_orders_type')} <span className="text-white/90 uppercase">{order.type || 'takeaway'}</span>
-                          {order.type === 'dine-in' && <span className="ml-2 text-amber-400">(Table {order.table_number})</span>}
+                          {order.type === 'dine_in' && <span className="ml-2 text-amber-400">(Table {order.table_number})</span>}
                         </p>
                         <p className="text-sm text-gray-400 mb-1">{t('admin_orders_total')} <span className="text-[#C5A572]">Rp {order.total_price.toLocaleString()}</span></p>
                         <ul className="text-sm text-gray-500 space-y-1 mt-2">

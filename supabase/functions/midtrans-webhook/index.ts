@@ -100,22 +100,49 @@ serve(async (req) => {
       });
     }
 
-    const orderId = Number(order_id);
-    if (Number.isNaN(orderId)) {
-      return new Response(JSON.stringify({ error: 'order_id must be numeric' }), {
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    const { data: payment, error: paymentLookupError } = await supabase
+      .from('payments')
+      .select('id, master_order_id')
+      .eq('midtrans_transaction_id', order_id)
+      .maybeSingle();
+
+    if (paymentLookupError) throw paymentLookupError;
+    if (!payment) {
+      return new Response(JSON.stringify({ error: 'Payment record not found for order_id' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 404,
       });
     }
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const { error: paymentUpdateError } = await supabase
+      .from('payments')
+      .update({ status: nextStatus })
+      .eq('id', payment.id);
 
-    const { error } = await supabase
+    if (paymentUpdateError) throw paymentUpdateError;
+
+    const { error: orderStatusError } = await supabase
       .from('orders')
       .update({ status: nextStatus })
-      .eq('id', orderId);
+      .eq('id', payment.master_order_id);
 
-    if (error) throw error;
+    if (orderStatusError) throw orderStatusError;
+
+    if (nextStatus === 'paid') {
+      const batchId = crypto.randomUUID();
+      const { error: itemsUpdateError } = await supabase
+        .from('order_items')
+        .update({
+          payment_status: 'paid',
+          batch_id: batchId,
+        })
+        .eq('order_id', payment.master_order_id)
+        .eq('payment_status', 'unpaid');
+
+      if (itemsUpdateError) throw itemsUpdateError;
+    }
 
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

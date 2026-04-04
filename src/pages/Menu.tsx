@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useFeedback } from '../context/FeedbackContext';
@@ -22,6 +22,7 @@ export default function Menu() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [favoriteCounts, setFavoriteCounts] = useState<Record<number, number>>({});
   const [myFavorites, setMyFavorites] = useState<number[]>([]);
+  const welcomedTableRef = useRef<string | null>(null);
 
   const [searchParams] = useSearchParams();
   const { cartCount, cartTotal, setIsCartOpen, setTableNumber } = useCart();
@@ -34,7 +35,10 @@ export default function Menu() {
     const tableParam = searchParams.get('table');
     if (tableParam) {
       setTableNumber(tableParam);
-      showToast(`${t('menu_welcome_table') || 'Welcome! You are seated at Table'} ${tableParam}`, 'info');
+      if (welcomedTableRef.current !== tableParam) {
+        showToast(`${t('menu_welcome_table') || 'Welcome! You are seated at Table'} ${tableParam}`, 'info');
+        welcomedTableRef.current = tableParam;
+      }
     }
   }, [searchParams, setTableNumber, showToast, t]);
 
