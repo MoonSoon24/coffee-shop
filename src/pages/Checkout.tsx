@@ -23,8 +23,7 @@ const MIDTRANS_SNAP_URL = IS_MIDTRANS_PRODUCTION
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { cart, cartTotal, clearCart, cartCount, tableNumber } = useCart();
-  const { user } = useAuth();
+  const { cart, cartTotal, clearCart, cartCount, tableNumber, setTableNumber } = useCart();  const { user } = useAuth();
   const { showToast } = useFeedback();
   const { t } = useLanguage();
 
@@ -238,6 +237,41 @@ export default function Checkout() {
   const finalTotal = Math.max(0, cartTotal - discountAmount - pointsToUse);
   const estimatedPointsEarned = Math.floor(finalTotal * 0.005);
 
+  const parsedMaxDineInTables = Number(import.meta.env.VITE_MAX_DINE_IN_TABLES || 20);
+  const maxDineInTableNumber = Number.isFinite(parsedMaxDineInTables) && parsedMaxDineInTables > 0
+    ? Math.floor(parsedMaxDineInTables)
+    : 20;
+
+  const normalizeTableNumber = (rawTableNumber: string) => rawTableNumber.trim();
+
+  const findUnusedTableNumber = async () => {
+    const { data: openDineInOrders, error } = await supabase
+      .from('orders')
+      .select('table_number')
+      .eq('type', 'dine_in')
+      .eq('session_status', 'open')
+      .not('table_number', 'is', null);
+
+    if (error) {
+      console.error('Failed to fetch used tables:', error);
+      throw new Error('Failed to auto-assign table number. Please try again.');
+    }
+
+    const usedTables = new Set(
+      (openDineInOrders || [])
+        .map((row) => Number(row.table_number))
+        .filter((tableNo) => Number.isInteger(tableNo) && tableNo > 0)
+    );
+
+    for (let table = 1; table <= maxDineInTableNumber; table += 1) {
+      if (!usedTables.has(table)) {
+        return String(table);
+      }
+    }
+
+    return null;
+  };
+
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
     showToast(t('checkout_geo_not_supported'), 'error');
@@ -280,20 +314,32 @@ export default function Checkout() {
     try {
       setIsSubmitting(true);
       let masterOrderId: number | null = null;
+      let resolvedTableNumber = tableNumber ? normalizeTableNumber(tableNumber) : null;
 
-      if (orderType === 'dine_in' && tableNumber) {
-        const { data: existingOrder, error: fetchError } = await supabase
+      if (orderType === 'dine_in' && !resolvedTableNumber) {
+        resolvedTableNumber = await findUnusedTableNumber();
+        if (!resolvedTableNumber) {
+          throw new Error('All dine-in tables are currently in use. Please choose takeaway/delivery or wait for an available table.');
+        }
+        setTableNumber(resolvedTableNumber);
+      }
+
+      if (orderType === 'dine_in' && resolvedTableNumber) {
+        const { data: existingOrders, error: fetchError } = await supabase
           .from('orders')
-          .select('id')
-          .eq('table_number', tableNumber)
+          .select('id, created_at')
+          .eq('table_number', resolvedTableNumber)
+          .eq('type', 'dine_in')
           .eq('session_status', 'open')
-          .maybeSingle();
+          .order('created_at', { ascending: false })
+          .limit(1);
 
-        // 1. Actually use the fetchError variable!
         if (fetchError) {
           console.error('Error fetching existing open tab:', fetchError);
           throw new Error('Failed to check open table session. Please try again.');
         }
+
+        const existingOrder = existingOrders?.[0];
 
         if (existingOrder) {
           masterOrderId = existingOrder.id;
@@ -312,7 +358,7 @@ export default function Checkout() {
               address: orderType === 'delivery' ? deliveryAddress : null,
               maps_link: orderType === 'delivery' ? mapsLink : null,
               type: orderType,
-              table_number: orderType === 'dine_in' ? tableNumber : null,
+              table_number: orderType === 'dine_in' ? resolvedTableNumber : null,
               session_status: orderType === 'dine_in' ? 'open' : 'closed',
               notes: orderNotes || null,
               subtotal: cartTotal,
